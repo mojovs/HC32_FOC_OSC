@@ -1,7 +1,9 @@
 # AGENTS.md
 
 HC32F460KETA（华大 XHSC）+ DRV8301 的 FOC 电机驱动固件。裸机、MDK/ARM Compiler 5、无 RTOS、
-无测试、无 lint/CI、非 git 仓库。应用代码在 `source/`，其余均为厂商 DDL。
+无测试、无 lint/CI。应用代码在 `source/`，其余为厂商 DDL 与本仓其他例程。
+本工程已随 `HC32_FOC_OSC` 仓库发布（同级 `smdrive-host/` 为配套 PC 上位机；构建产物不入库，
+见仓库根 `.gitignore`）。
 
 ## 本仓是什么（以及不是什么）
 
@@ -48,7 +50,8 @@ arm-none-eabi-gcc -c -fsyntax-only -Wall -mcpu=cortex-m4 -mthumb `
 - 手写的 `.c/.h` 是 **GBK/cp936，不是 UTF-8**。按 UTF-8 读会显示乱码；按 UTF-8 回写会
   静默损坏中文注释，而中文注释往往是单位/引脚意图的唯一说明。请**逐字节保真**地编辑。
   新注释用 ASCII，避免混编码。
-- 仓库路径含中文（`配套代码`）；shell 命令里给路径加引号。
+- 本仓工作路径为 ASCII（`code/example/...`），但移植来源与部分引用含中文路径（`配套代码`）；
+  shell 命令里给路径加引号。
 
 ## 时钟 / 时序（与原版 STM32 不同）
 
