@@ -12,13 +12,13 @@
  *     vcp_rxdata() only pushes into a ring buffer, vcp_task() drains it from
  *     the main loop.
  *
- * foc ï¿½Ï²ï¿½Ëµï¿½ï¿½ (usb_dev_cdc + usart_uart_int ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÌµÄ¹ï¿½ï¿½ï¿½):
- *   - USART3 RX ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½Ú°ï¿½Ã¿ï¿½ï¿½ï¿½Ö½ï¿½Í¬Ê±ï¿½Í½ï¿½ï¿½ï¿½ï¿½ï¿½:
- *       1) USB CDC IN ï¿½ï¿½ï¿½ï¿½ (ï¿½Å½ï¿½: PC ï¿½Ü¿ï¿½ï¿½ï¿½ CN1 ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½, Ô­ï¿½ï¿½ï¿½Ü²ï¿½ï¿½ï¿½);
- *       2) g_stcUartRing ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ usart_uart_int, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,
- *          UART_ReadByte ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡)ï¿½ï¿½
- *   - VCP_LOCAL_ECHO ï¿½Ø±ï¿½: foc ï¿½ï¿½ CDC ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½Ì¨/PC Í¨ï¿½Å¿ï¿½, ï¿½ï¿½ï¿½Ù°ï¿½
- *     PC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (usb_dev_cdc ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½)ï¿½ï¿½
+ * foc ¸Ä¶¯ËµÃ÷ (ÓÉ usb_dev_cdc + usart_uart_int ºÏ²¢¶øÀ´):
+ *   - USART3 RX Êý¾ÝÓÐÁ½¸öÈ¥´¦, »¥²»Ó°Ïì:
+ *       1) USB CDC IN ¶Ëµã (ÀýÈç: PC °ÑÃüÁî·¢¸ø CN1 Ê±»ØÏÔ¸ø PC);
+ *       2) g_stcUartRing ½ÓÊÕ»·ÐÎ»º³å (È¡×Ô usart_uart_int, ¹©Ö÷Ñ­»·
+ *          Í¨¹ý UART_ReadByte Öð×Ö½Ú¶ÁÈ¡);
+ *   - VCP_LOCAL_ECHO ÖÃ 0: foc °Ñ CDC µ±×÷ÉÏÎ»»ú/PC Á´Â·, Òò´Ë¹Ø±Õ
+ *     PC ²àµÄ±¾µØ»ØÏÔ (usb_dev_cdc ÓÃÓÚ´®¿ÚÖÕ¶Ëµ÷ÊÔÊ±²ÅÐèÒª)¡£
  *
  * Ported from the XHSC DDL example usb_dev_cdc.
  *******************************************************************************
@@ -84,7 +84,7 @@
  * Set to 0 when the CDC port is used as a real console for the motor drive,
  * otherwise every command you type is echoed back on the screen.
  *
- * foc: CDC ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½Ì¨/PC Í¨ï¿½Å¿ï¿½, ï¿½Ì¶ï¿½Îª 0ï¿½ï¿½
+ * foc: CDC ÓÃ×÷ÉÏÎ»»ú/PC Á´Â·, Òò´ËÖÃ 0¡£
  */
 #define VCP_LOCAL_ECHO                  (0U)
 
@@ -103,8 +103,8 @@ static volatile uint16_t m_u16TxHead = 0U;      /* producer: USB ISR */
 static volatile uint16_t m_u16TxTail = 0U;      /* consumer: vcp_task() */
 
 /*
- * ï¿½ï¿½ï¿½Ø½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ usart_uart_int ï¿½ï¿½ 500 ï¿½Ö½ï¿½Ô¼ï¿½ï¿½):
- * USART3 RX ï¿½Ð¶ï¿½Ð´, ï¿½ï¿½Ñ­ï¿½ï¿½ UART_ReadByte() ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ±¾¹¤³Ì×ÔÓÃµÄ RX »·ÐÎ»º³å (È¡×Ô usart_uart_int µÄ 500 ×Ö½Ú»º³å):
+ * USART3 RX ÖÐ¶ÏÐ´Èë, ÓÉ UART_ReadByte() ¶ÁÈ¡, Óë·¢Íù PC µÄÍ¨µÀ¶ÀÁ¢¡£
  */
 static uint8_t m_au8UartRing[UART_RING_SIZE];
 stc_ring_buf_t g_stcUartRing;
@@ -191,7 +191,7 @@ void vcp_init(void)
 
     m_u8PortOpenedMsg = 0U;
 
-    /* ï¿½ï¿½ï¿½Ø½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½ (usart_uart_int ï¿½ï¿½ï¿½ï¿½) */
+    /* ³õÊ¼»¯½ÓÊÕ»·ÐÎ»º³å (È¡×Ô usart_uart_int µÄ×ö·¨) */
     (void)BUF_Init(&g_stcUartRing, m_au8UartRing, sizeof(m_au8UartRing));
 
     /* Configure USART RX/TX pin. */
@@ -402,8 +402,8 @@ static uint16_t VcpApplyLineCoding(void)
  *         received number is counted by APP_Rx_ptr_in
  *         (called from the USART3 RX interrupt)
  *
- *         foc ï¿½Ï²ï¿½: Ã¿ï¿½ï¿½ï¿½Ö½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½ (usart_uart_int ï¿½ï¿½ï¿½ï¿½),
- *         ï¿½ï¿½ UART_ReadByte() ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½
+ *         foc ËµÃ÷: ÊÕµ½µÄ×Ö½ÚÐ´Èë±¾¹¤³Ì×ÔÓÃ»·ÐÎ»º³å (usart_uart_int ×ö·¨),
+ *         ÓÉ UART_ReadByte() ÔÚÖ÷Ñ­»·Àï¶ÁÈ¡¡£
  * @param  None
  * @retval None
  */
@@ -425,7 +425,7 @@ void vcp_txdata(void)
         APP_Rx_ptr_in = 0U;
     }
 
-    /* ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½: CN1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (usart_uart_int ï¿½ï¿½ï¿½ï¿½) */
+    /* Í¬Ê±Ð´Èë½ÓÊÕ»·ÐÎ»º³å: CN1 µÄÊý¾Ý¿ÉÔÚÖ÷Ñ­»·ÀïÈ¡ÓÃ (usart_uart_int µÄ×ö·¨) */
     (void)BUF_Write(&g_stcUartRing, &u8Data, 1UL);
 }
 
@@ -532,7 +532,7 @@ void vcp_task(void)
 void UsartRxIrqCallback(void)
 {
     if (SET == USART_GetStatus(CDC_COMM, USART_FLAG_RX_FULL)) {
-        /* Send the received data to the PC Host (bridge, Ô­ï¿½ï¿½ï¿½ï¿½) */
+        /* °ÑÊÕµ½µÄÊý¾Ý·¢¸ø PC ÉÏÎ»»ú (ÇÅ½Ó·½Ïò) */
         vcp_txdata();
     }
 }
@@ -561,11 +561,11 @@ void UsartErrIrqCallback(void)
 }
 
 /**
- * @brief  ï¿½Ó±ï¿½ï¿½Ø½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1 ï¿½Ö½ï¿½ (ï¿½ï¿½ï¿½ï¿½ usart_uart_int ï¿½ï¿½
- *         UART_ReadByte ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½CN1 ï¿½ï¿½ï¿½Úºï¿½ USB ï¿½ï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´
- *         Ä¿Ç°Ö»ï¿½ï¿½ CN1; USB ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ PC Í¨ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð½ï¿½ï¿½ë¡£
- * @param  [out] pu8Data  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½
- * @retval 1: ï¿½ï¿½ï¿½ï¿½ 1 ï¿½Ö½ï¿½; 0: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief  ´Ó½ÓÊÕ»·ÐÎ»º³åÈ¡×ß 1 ¸ö×Ö½Ú (È¡×Ô usart_uart_int µÄ
+ *         UART_ReadByte ÊµÏÖ), ¹© CN1 ·´ÏòÉÏÐÐµ½ USB µÄÂ·¾¶Ê¹ÓÃ¡£
+ *         ·µ»Ø 1 ±íÊ¾È¡µ½ 1 ¸ö×Ö½Ú, 0 ±íÊ¾»º³åÎª¿Õ¡£
+ * @param  [out] pu8Data  ¶Á³öµÄ×Ö½Ú
+ * @retval 1: ¶Áµ½ 1 ¸ö×Ö½Ú; 0: »º³åÎª¿Õ
  */
 uint32_t UART_ReadByte(uint8_t *pu8Data)
 {

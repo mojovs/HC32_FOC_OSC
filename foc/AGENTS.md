@@ -12,10 +12,28 @@ HC32F460KETA（华大 XHSC）+ DRV8301 的 FOC 电机驱动固件。裸机、MDK
   要理解“为什么”看它，**构建步骤不要看它**。
 - 原版每个功能各先移植成一个独立示例，放在 `E:\pcb\SMotorDrive\code\example` 下：
   `gpio_output`、`usart_uart_int`、`usb_dev_cdc`、`drv8301_test`，以及 `foc`（本仓，合并目标）。
-- **FOC 算法尚未移植。** `source/` 只有板级初始化 + USB CDC + PC 协议；
+- **FOC 算法本体尚未移植。** `source/` 只有板级初始化 + USB CDC + PC 协议；
   `main.c::CompanionModulesInit()` 里 OLED、`drv8301_init()`、`foc_algorithm_initialize()` 仍是 TODO 桩。
-  不要假设 `motor/*`（adc.c、foc_algorithm.c、low_task.c、speed_pid.c、ekf 封装）在本仓存在。
+  不要假设原版 `motor/*`（adc.c、low_task.c、speed_pid.c、ekf 封装）在本仓存在。
+  唯一例外见下节：MATLAB 生成的 `foc_algorithm.c` 已被**引用**进 MDK 工程。
 - `Readme.txt` 是 DDL 自带的“GPO样例”样例文本，与本工程无关——忽略。
+
+## MATLAB 生成代码（`foc_algorithm`）
+
+- `example/matlab/foc_algorithm_ert_rtw/` 是 **MATLAB/Simulink Coder 生成的代码，会被 MATLAB 反复重写**：
+  **只引用、不要复制或手改**。稳定文件名 `foc_algorithm.c/.h`、`rtwtypes.h`；
+  `ert_main.c` 含 `main()`，**不要编进固件**。
+- MDK 引用方式（**Debug/Release 两个 target 都加**）：源文件
+  `..\..\matlab\foc_algorithm_ert_rtw\foc_algorithm.c`（分组 `matlab`）；包含路径追加
+  `../../matlab/foc_algorithm_ert_rtw`（取 `foc_algorithm.h`/`rtwtypes.h`）与 `../matlab_ert`。
+- 生成头 `foc_algorithm.h` 会无条件 `#include "rtw_continuous.h"` / `"rtw_solver.h"`，而这两个 MathWorks
+  头**不在生成目录里**。本仓 `foc/matlab_ert/` 放**空垫片**（原版 STM32 工程也是 0 字节）——本模型是纯代数
+  子系统（clark/park/anti_park），用不到这两个头里的任何符号；这样构建不依赖 MATLAB 的安装路径/版本。
+  若模型日后重新生成成含连续状态/求解器的代码，需把垫片换成真正的 MathWorks 头。
+- 目前只是**引用进工程参与编译**：`main.c` 的 `foc_algorithm_initialize()` 仍是 TODO 桩，接线
+  （`rtU.Vd/Vq/theta` → `rtY.Valpha/Vbeta`）等 FOC 整体移植时再做。
+- `matlab/` 目前**未纳入 git**（untracked）。即仓库自身不含这份生成代码，新克隆后需先用 MATLAB 重新生成。
+  若要“开箱即构建”，得把 `foc_algorithm_ert_rtw/` 入库（可忽略 `slprj/`、`*.mat`、`*.dmr` 等缓存）。
 
 ## 构建
 
@@ -45,11 +63,13 @@ arm-none-eabi-gcc -c -fsyntax-only -Wall -mcpu=cortex-m4 -mthumb `
   -DHC32F460 -DUSE_DDL_DRIVER -DXTAL_VALUE=16000000 ($inc | % {"-I$_"}) "$src/main.c"
 ```
 
-## 源码编码——改前必读
+## 源码编码
 
-- 手写的 `.c/.h` 是 **GBK/cp936，不是 UTF-8**。按 UTF-8 读会显示乱码；按 UTF-8 回写会
-  静默损坏中文注释，而中文注释往往是单位/引脚意图的唯一说明。请**逐字节保真**地编辑。
-  新注释用 ASCII，避免混编码。
+- 应用源码 `foc/source/**` 为 **GBK/cp936**（Keil 的 `Encode in ANSI` / `Chinese GB2312` 即按此解码，
+  默认设置即可，不要切 UTF-8）。编辑保持 GBK：按 UTF-8 读会显示乱码，按 UTF-8 回写会静默损坏
+  中文注释；新注释也用 GBK。
+- 已知：`board_config.c`、`main.c`、`cdc_data_process.c/.h` 的中文注释在移植时已被破坏
+  （历史上被按 UTF-8 误存成 `�`，现已收敛为 `?`），git 里无完好版本；需要时按代码重写。
 - 本仓工作路径为 ASCII（`code/example/...`），但移植来源与部分引用含中文路径（`配套代码`）；
   shell 命令里给路径加引号。
 
@@ -59,9 +79,14 @@ arm-none-eabi-gcc -c -fsyntax-only -Wall -mcpu=cortex-m4 -mthumb `
   （`board_config.c::SystemClockInit`，`board_config.h` 的 `USB_PLL_M/N/P`）。
 - PWM 为 **20 kHz**（TMRA_1）——原版是 10 kHz。`FOC_PERIOD = 1/PWM_TIM_FREQ`；移植 FOC 算法时
   控制周期要与 `PWM_TIM_FREQ` 保持一致。
-- 一个中断干了很多事：`board_config.c::Tmra1OvfIrqCallback()`（INT080 = TMRA_1 OVF，20 kHz）启动 ADC、
-  派生 1 ms 节拍、跑 PC 链路采样节拍。HC32F460 ADC1 **无 DMA**，只能轮询。
-- `main.c` 主循环：`vcp_task()`、`communication_send_task()`、`UsbEventTask()`、清 ADC EOCA，
+- ADC 采样走 **B2 方案（硬件触发 + DMA）**：`ADC1` 序列 A 由 `TMRA_1 OVF` 事件经 **AOS** 硬件触发
+  （`board_config.c::AdcHardTriggerConfig`），结果由 **DMA1 CH0** 从 `DR2` 起搬 `ADC_DMA_BLOCK_SIZE`
+  个 16-bit 到 `g_au16AdcValue`（`AdcDmaConfig`），块完成中断（`INT038`）里跑 `communication_task()`
+  （`AdcDmaIrqCallback`，将来 FOC 也放这里）。HC32F460 的 ADC **有 DMA**（DDL 有 `adc_dma` 例程），
+  原「ADC 无 DMA、只能轮询」的说法是错的。
+- `board_config.c::Tmra1OvfIrqCallback()`（INT080 = TMRA_1 OVF，20 kHz）现在只派生 1 ms 节拍，
+  不再 `ADC_Start`、不再调 `communication_task()`。
+- `main.c` 主循环：`vcp_task()`、`communication_send_task()`、`UsbEventTask()`，
   以及 1 ms 分支（`Board_Key1msTask()` + PC 命令解析，每 10 次 ms = 100 Hz）。
 
 ## 外设 / 坑

@@ -14,7 +14,7 @@
  *   - multi-byte numbers are big-endian, float is IEEE-754 binary32.
  *
  * Timing (this project, HC32F460):
- *   - communication_task()      : sampling tick, call from the 20 kHz PWM ISR
+ *   - communication_task()      : sampling tick, call from the ADC/DMA ISR
  *   - communication_handle()    : command parse, call at 100 Hz (1 ms soft divide)
  *   - communication_send_task() : frame flush, call from the main loop
  *     (sending from the main loop avoids sharing the CDC IN ring with the USB
@@ -53,7 +53,7 @@ extern "C"
 #define PC_FRAME_LEN            (1715U)     /* 0x6B3, full waveform frame       */
 #define PC_ID_FRAME_LEN         (17U)       /* ID reply frame                   */
 
-/* Sample tick base: communication_task() is called once per PWM/ADC tick.
+/* Sample tick base: communication_task() is called once per ADC/DMA tick.
  * The host asks for a per-channel sample rate f; the divisor is
  * PC_SAMPLE_BASE_HZ / f. Keep this equal to the ISR call rate. */
 #define PC_SAMPLE_BASE_HZ       (20000U)
@@ -64,7 +64,7 @@ extern "C"
 /* Reset the registration tables and the protocol state. */
 extern void communication_init(void);
 
-/* Sample one tick worth of data. Call from the PWM ISR at PC_SAMPLE_BASE_HZ. */
+/* Sample one tick worth of data. Call from the ADC/DMA ISR at PC_SAMPLE_BASE_HZ. */
 extern void communication_task(void);
 
 /* Parse a pending host command. Call at 100 Hz. */

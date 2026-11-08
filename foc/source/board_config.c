@@ -1,86 +1,89 @@
 /**
  *******************************************************************************
  * @file  foc/source/board_config.c
- * @brief hard_init() - HC32F460KETA + DRV8301 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½å¼¶Ó²ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½
+ * @brief hard_init() - HC32F460KETA + DRV8301 °å¼¶³õÊ¼»¯ÓëÊ±ÖÓÅäÖÃ
  *
- * ï¿½ï¿½Ö²ï¿½ï¿½ STM32F4 ï¿½ï¿½ï¿½×¹ï¿½ï¿½ï¿½:
- *   ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/code/user/board_config.c  (hard_init)
+ * ÒÆÖ²×Ô STM32F4 Ô­¹¤³Ì:
+ *   ÅäÌ×´úÂë/´úÂë/code/user/board_config.c  (hard_init)
  *
- * Ô´ï¿½ï¿½ï¿½Ì¸ï¿½ï¿½ï¿½ï¿½Ü¿ï¿½ï¿½ë±¾ï¿½ï¿½Ö²ï¿½Ä¶ï¿½Ó¦ï¿½ï¿½Ïµ (hard_init ï¿½Ú²ï¿½Ë³ï¿½ï¿½Ò»ï¿½ï¿½):
- *   Ô´ï¿½ï¿½ï¿½ï¿½ (STM32F446)                     ï¿½ï¿½ï¿½ï¿½Ö² (HC32F460)
- *   -------------------------              ---------------------------
- *   RCC GPIO/TIM/ADC/DMA Ê±ï¿½ï¿½Ê¹ï¿½ï¿½           FCG ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Å¿ï¿½
- *   SysTick_Config(HCLK/1000)              TMRA_1 ï¿½ï¿½ï¿½ï¿½Ð¶Ï²ï¿½ï¿½ï¿½ 1ms ï¿½ï¿½Ö¾
- *   TIM2 ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ (TI1 Ë«ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½Ä£Ê½ï¿½ï¿½Î»)    TMRA_2 ï¿½ï¿½Í¨ï¿½ï¿½ (CH1/CH2/CH4 ï¿½ï¿½Ó¦
- *                                          PA0/PA1/PA3) Ó²ï¿½ï¿½Ë«ï¿½Ø²ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½
- *                                          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *                                          GPIO ï¿½ï¿½ï¿½ï¿½Æ½ (Ô´ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½,
- *                                          ï¿½ï¿½Ô´ hall_sensor.c TIM2_IRQHandler)
- *   DRV8301 ï¿½ï¿½ï¿½ï¿½ GPIO ï¿½ï¿½Ê¼ï¿½ï¿½Æ½              Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Í¬ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Ðµï¿½Æ½
- *   OLED SPI ï¿½ï¿½ï¿½ï¿½                          ï¿½ï¿½ï¿½ï¿½ï¿½Þ¶ï¿½Ó¦Ó²ï¿½ï¿½ (OLED ï¿½ï¿½ï¿½ï¿½Îª
- *                                          I2C PC7/PC8, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö²)
- *   USER LED PC9                           PC9, ï¿½Íµï¿½Æ½ï¿½ï¿½ï¿½ï¿½
- *   TIM1 6 Â· PWM + BDTR ï¿½ï¿½ï¿½ï¿½              TMRA_1 3 Â· PWM (DRV8301 ï¿½Ú²ï¿½
- *                                          ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½), 20kHz
- *   ADC1 ×¢ï¿½ï¿½ï¿½ï¿½ (T1_CC4 ï¿½ï¿½ï¿½ï¿½) + DMA ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ADC1 ï¿½ï¿½ï¿½ï¿½ A, ï¿½ï¿½ 20kHz PWM ï¿½Ð¶ï¿½
- *                                          ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *   ï¿½ï¿½ï¿½ï¿½ EXTI ï¿½Â½ï¿½ï¿½ï¿½ + NVIC ï¿½ï¿½ï¿½ï¿½            Í¬Îª EXTI ï¿½Â½ï¿½ï¿½ï¿½ (EIRQ2/3/4),
- *                                          ï¿½ï¿½ "ï¿½ï¿½ï¿½ï¿½ + 1ms ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½×°" ï¿½ï¿½ï¿½ï¿½
- *   USB PC Í¨ï¿½ï¿½ (pc_communication_init)     usb_dev_init() ï¿½ï¿½ main ï¿½ï¿½ï¿½ï¿½ï¿½
- *                                          (usb_bsp.c/cdc_data_process.c,
- *                                          ï¿½ï¿½Ö²ï¿½ï¿½ usb_dev_cdc ï¿½ï¿½ï¿½ï¿½)
- *   ADC JEOC ï¿½Ð¶ï¿½                          ï¿½ï¿½Îªï¿½ï¿½Ñ¯ ADC EOA
+ * ±¾¹¤³ÌÓëÔ­¹¤³Ì³õÊ¼»¯ÏîµÄ¶ÔÓ¦¹ØÏµ (hard_init ÖÐÍê³É):
+ *   Ô­¹¤³Ì (STM32F446)                    ±¾¹¤³Ì (HC32F460)
+ *   -------------------------             ---------------------------
+ *   RCC Ê¹ÄÜ GPIO/TIM/ADC/DMA Ê±ÖÓ         FCG Ê¹ÄÜ¸÷ÍâÉèÊ±ÖÓ
+ *   SysTick_Config(HCLK/1000)             TMRA_1 Òç³öÖÐ¶Ï, ÅÉÉú 1ms ½ÚÅÄ
+ *   TIM2 »ô¶û½Ó¿Ú (TI1 Ë«ÑØ + ÂË²¨)        TMRA_2 ²¶»ñ (CH1/CH2/CH4 ¶ÔÓ¦
+ *                                         PA0/PA1/PA3) Ë«ÑØ²¶»ñ + Òç³ö¼ÆÊý
+ *                                         + ±ßÑØ¼ä¸ô; ÉÈÇøÖ±½Ó¶Á GPIO ÊäÈë
+ *                                         (¼ûÔ­ hall_sensor.c TIM2_IRQHandler)
+ *   DRV8301 Ê¹ÄÜ GPIO Óë¸´Î»              SPI2 + GPIO, EN_GATE ÏÈÀ­µÍ
+ *   OLED SPI Çý¶¯                         OLED ×ß I2C PC7/PC8 (´ýÒÆÖ²)
+ *   USER LED PC9                          PC9, ÐÄÌøÖ¸Ê¾
+ *   TIM1 6 Â· PWM + BDTR ËÀÇø             TMRA_1 3 Â· PWM (DRV8301 3-PWM
+ *                                         Ä£Ê½), 20kHz
+ *   ADC1 ×¢Èë×é (T1_CC4 ´¥·¢) + DMA       ADC1 ÐòÁÐ A, TMRA_1 OVF ÊÂ¼þ¾­ AOS
+ *                                         Ó²¼þ´¥·¢ + DMA1 CH0 °á DR2 Æð 12 ¸ö
+ *   ---- EXTI °´¼ü + NVIC ÖÐ¶Ï            °´¼ü EXTI (EIRQ2/3/4),
+ *                                         ²ÉÓÃ Ïû¶¶ + 1ms ÂÖÑ¯ ·½Ê½´¦Àí
+ *   USB PC Á´Â· (pc_communication_init)   usb_dev_init() ÔÚ main Àïµ÷ÓÃ
+ *                                         (¼û usb_bsp.c/cdc_data_process.c)
+ *   ADC JEOC ÖÐ¶Ï                         DMA ¿éÍê³ÉÖÐ¶Ï (INT038) ÅÜ communication_task
  *
- * ï¿½ï¿½Ô´ï¿½ï¿½ï¿½Ìµï¿½Ò»ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½Æ«ï¿½ï¿½: hard_init() ï¿½ï¿½ï¿½ï¿½Ê± EN_GATE ï¿½ï¿½ï¿½ÖµÍµï¿½Æ½ (ï¿½ï¿½ï¿½ï¿½
- * ï¿½Å¼ï¿½ï¿½Ø¶ï¿½)ï¿½ï¿½Ô´ï¿½ï¿½ï¿½Ú´Ë´ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½; ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ drv8301_test ï¿½ï¿½Í¬) ï¿½æ¶¨: Ö»ï¿½ï¿½ï¿½ï¿½
- * DRV8301 ï¿½ï¿½ SPI ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã²ï¿½Ð£ï¿½ï¿½Í¨ï¿½ï¿½Ö®ï¿½ï¿½ (ï¿½É´ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ drv8301_init()
- * ï¿½ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Å¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * ×¢Òâ: ±¾¹¤³Ì hard_init() ²»À­¸ß EN_GATE (Ä¬ÈÏ²»Ê¹ÄÜ¹¦ÂÊ¼¶),
+ * Ö»Íê³ÉÒý½Å³õÊ¼»¯; ÕæÕýÊ¹ÄÜ (Èç drv8301_test ÄÇÑù) ÐèÔÚ:
+ * Íê³É DRV8301 µÄ SPI ÅäÖÃÖ®ºó (¼´µ÷ÓÃ drv8301_init() Ö®ºó)
+ * ÔÙÀ­¸ß EN_GATE, ·ñÔò¹¦ÂÊ¼¶²»ÊÜ¿Ø¡£
  *******************************************************************************
  */
 
 #include "board_config.h"
 #include "pc_communication.h"   /* communication_task(): PC host link sampling */
+#include "pc_communication_init.h"   /* pc_test_sine_task() */
 
 /*******************************************************************************
- * ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½
+ * È«¾Ö±äÁ¿
  ******************************************************************************/
-/* TMRA_1 ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½Î», ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ */
-volatile uint8_t g_u8AdcBusy = 0U;
+/* ADC ÐòÁÐ A µÄ DMA ½á¹û (´Ó DR2 °á 12 ¸ö 16-bit):
+   [0]=CH2 ITOTAL, [8]=CH10 VBUS, [9]=CH11 IA, [10]=CH12 IB, [11]=CH13 NTC */
+volatile uint16_t g_au16AdcValue[ADC_DMA_BLOCK_SIZE] = {0U};
 volatile uint8_t g_u8Tick1ms = 0U;
 
-/* TMRA_2 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î¬ï¿½ï¿½ (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ hall_sensor.c ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ */
-volatile uint32_t g_u32HallEdgeInterval = 0U;   /* 0 = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ */
+/* TMRA_2 ²¶»ñ½á¹û (ÓÃ·¨¼ûÔ­ hall_sensor.c) */
+volatile uint32_t g_u32HallEdgeInterval = 0U;   /* 0 = ÉÐÎÞÓÐÐ§±ßÑØ */
 volatile uint32_t g_u32HallEdgeCnt = 0U;
 volatile uint8_t  g_u8HallSector = 0U;
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ key1_flag/key2_flag/key3_flag)ï¿½ï¿½ */
+/* °´¼ü±êÖ¾ (¶ÔÓ¦Ô­¹¤³ÌµÄ key1_flag/key2_flag/key3_flag) */
 volatile uint8_t g_u8Key1Flag = 0U;
 volatile uint8_t g_u8Key2Flag = 0U;
 volatile uint8_t g_u8Key3Flag = 0U;
 
-static uint32_t s_u32PwmCnt = 0UL;      /* 20kHz ï¿½ï¿½Æµï¿½ï¿½ 1ms ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ */
+static uint32_t s_u32PwmCnt = 0UL;      /* 20kHz ¼ÆÊý, ÓÃÓÚÅÉÉú 1ms ½ÚÅÄ */
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½×´Ì¬ */
-static uint32_t s_u32HallOvfCnt = 0UL;  /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»: 16 Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-static uint32_t s_u32HallLastEdge = 0UL;/* ï¿½ï¿½Ò»ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹Ê±ï¿½ï¿½ï¿½ */
-static uint8_t  s_u8HallEdgeValid = 0U; /* 0: ï¿½ï¿½Ò»ï¿½ï¿½Ö»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+/* »ô¶û²¶»ñÒç³ö¼ÆÊýµÄÀ©Õ¹ */
+static uint32_t s_u32HallOvfCnt = 0UL;  /* Òç³öÀ©Õ¹: 16 Î»¼ÆÊýÆ÷µÄ¸ßÎ» */
+static uint32_t s_u32HallLastEdge = 0UL;/* ÉÏÒ»´Î²¶»ñµÄÍêÕû¼ÆÊýÖµ */
+static uint8_t  s_u8HallEdgeValid = 0U; /* 0: ÉÐÎ´ÊÕµ½Ê×¸ö±ßÑØ, ºöÂÔ¼ä¸ô */
 
-/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ 0 ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ EXTI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½), ï¿½ï¿½Ñ­ï¿½ï¿½ 1ms ï¿½ï¿½ï¿½ï¿½ï¿½Ê± */
+/* °´¼üÏû¶¶¼ÆÊý: ·Ç 0 ±íÊ¾ÕýÔÚÏû¶¶ (ÓÉ¶ÔÓ¦ EXTI »Øµ÷ÖÃ 1), ÓÉ 1ms ÈÎÎñµÝÔö */
 static volatile uint16_t s_u16Key1DbCnt = 0U;
 static volatile uint16_t s_u16Key2DbCnt = 0U;
 static volatile uint16_t s_u16Key3DbCnt = 0U;
 
-/* ï¿½ï¿½ï¿½ë²¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ (CH3 ï¿½ï¿½ PA2 ï¿½ï¿½, ï¿½Ñ±ï¿½ TP181 Õ¼ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) */
+/* »ô¶û²¶»ñÍ¨µÀ (CH3 ¶ÔÓ¦ PA2 µÚ¶þ¹¦ÄÜ, ¼û TP181 ¹æ¸ñÊé) */
 static const uint32_t s_au32HallCh[3] = { HALL_CAPT_CH_A, HALL_CAPT_CH_B, HALL_CAPT_CH_C };
 
 /*******************************************************************************
- * ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ('static')
+ * ±¾µØº¯ÊýÉùÃ÷ ('static')
  ******************************************************************************/
 static void SystemClockInit(void);
 static void GpioInit(void);
 static void Spi2Init(uint32_t u32Baud);
 static uint16_t Spi2Transfer16(uint16_t u16Tx);
 static void AdcInit(void);
+static void AdcHardTriggerConfig(void);
+static void AdcDmaConfig(void);
+static void AdcDmaIrqCallback(void);
+static void IntcIrqInstall(const stc_irq_signin_config_t *pstcConfig, uint32_t u32Priority);
 static void PwmInit(void);
 static void Tmra2CaptInit(void);
 static void KeyExtiInit(void);
@@ -92,16 +95,16 @@ static void Key2IrqCallback(void);
 static void Key3IrqCallback(void);
 
 /*******************************************************************************
- * ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½
+ * º¯ÊýÊµÏÖ
  ******************************************************************************/
 
 /**
- * @brief  ÏµÍ³Ê±ï¿½ï¿½: ï¿½â²¿ï¿½ï¿½ï¿½ï¿½ 16MHz -> MPLL 200MHz + PLLX 48MHz (USB ×¨ï¿½ï¿½),
- *         PCLK1 100MHzï¿½ï¿½
- *         (Ô´ï¿½ï¿½ï¿½ï¿½: RCC_GetClocksFreq + 180MHz PLL, 8M ï¿½ï¿½ï¿½ï¿½;
- *         ï¿½ï¿½ï¿½å¾§ï¿½ï¿½ 16MHz, 200MHz Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú°ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤;
- *         PLLX 48MHz ï¿½ï¿½ï¿½ï¿½ usb_dev_cdc ï¿½ï¿½ï¿½ï¿½, USB FS ï¿½Úºï¿½Òªï¿½ï¿½È· 48MHz,
- *         ï¿½ï¿½ï¿½ï¿½ PLL ï¿½à»¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
+ * @brief  Ê±ÖÓ: Íâ²¿ 16MHz -> MPLL 200MHz + PLLX 48MHz (USB ÓÃ),
+ *         PCLK1 100MHz¡£
+ *         (Ô­¹¤³Ì: RCC_GetClocksFreq + 180MHz PLL, 8M ¾§Õñ;
+ *         ±¾¹¤³Ì: 16MHz ¾§Õñ, 200MHz Ö÷Æµ;
+ *         PLLX 48MHz ÑØÓÃ usb_dev_cdc µÄÅäÖÃ, USB FS Ðè¾«È· 48MHz,
+ *         ÓëÖ÷ PLL Ïà»¥¶ÀÁ¢)
  */
 static void SystemClockInit(void)
 {
@@ -110,20 +113,20 @@ static void SystemClockInit(void)
     stc_clock_pllx_init_t stcUpllInit;
     uint32_t u32Wait;
 
-    /* ï¿½ï¿½ï¿½ß·ï¿½Æµ: HCLK=200MHz, PCLK1=100MHz, PCLK2=50MHz */
+    /* Ê±ÖÓ·ÖÆµ: HCLK=200MHz, PCLK1=100MHz, PCLK2=50MHz */
     CLK_SetClockDiv(CLK_BUS_CLK_ALL, (CLK_HCLK_DIV1 | CLK_EXCLK_DIV2 | CLK_PCLK0_DIV1 | \
                                       CLK_PCLK1_DIV2 | CLK_PCLK2_DIV4 | CLK_PCLK3_DIV4 | CLK_PCLK4_DIV2));
 
-    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½â¹¦ï¿½ï¿½, Ê¹ï¿½ï¿½ 16MHz ï¿½ï¿½ï¿½ï¿½ */
+    /* Ê¹ÄÜÍâ²¿¾§ÕñÊäÈë, ÅäÖÃÎª 16MHz ÎÞÔ´¾§Õñ */
     GPIO_AnalogCmd(XTAL_PORT, XTAL_PIN, ENABLE);
     (void)CLK_XtalStructInit(&stcXtalInit);
     stcXtalInit.u8State      = CLK_XTAL_ON;
     stcXtalInit.u8Mode       = CLK_XTAL_MD_OSC;
-    stcXtalInit.u8Drv        = CLK_XTAL_DRV_MID;    /* 16MHz ï¿½ï¿½ï¿½ï¿½ [16,20) ï¿½ï¿½ï¿½ï¿½, ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ */
+    stcXtalInit.u8Drv        = CLK_XTAL_DRV_MID;    /* 16MHz ÂäÔÚ [16,20) Çø¼ä, ÓÃÖÐµµÇý¶¯ÄÜÁ¦ */
     stcXtalInit.u8StableTime = CLK_XTAL_STB_2MS;
     (void)CLK_XtalInit(&stcXtalInit);
 
-    /* ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ LED, ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) */
+    /* µÈ´ý¾§ÕñÎÈ¶¨, ³¬Ê±ÔòËÀµÈ (±ÜÃâÊ±ÖÓÒì³£µ¼ÖÂÎÞ·¨µ÷ÊÔ) */
     u32Wait = 100UL;
     while ((SET != CLK_GetStableStatus(CLK_STB_FLAG_XTAL)) && (u32Wait > 0UL)) {
         DDL_DelayMS(1UL);
@@ -134,7 +137,7 @@ static void SystemClockInit(void)
         }
     }
 
-    /* MPLL ï¿½ï¿½ï¿½ï¿½: 16MHz / 2 * 50 / 2 = 200MHz (VCO = 400MHz) */
+    /* MPLL ÅäÖÃ: 16MHz / 2 * 50 / 2 = 200MHz (VCO = 400MHz) */
     (void)CLK_PLLStructInit(&stcMpllInit);
     stcMpllInit.PLLCFGR          = 0UL;
     stcMpllInit.PLLCFGR_f.PLLM   = (2UL - 1UL);     /* /2          */
@@ -156,8 +159,8 @@ static void SystemClockInit(void)
         }
     }
 
-    /* PLLX (UPLL): USB FS ×¨ï¿½ï¿½Ê±ï¿½ï¿½ 16MHz / 4 * 84 / 7 = 48MHzï¿½ï¿½
-       ï¿½ï¿½ PLL ï¿½ï¿½ 200MHz / PCLK1 100MHz ï¿½ï¿½ï¿½Ã²ï¿½ï¿½ï¿½Ó°ï¿½ì¡£ */
+    /* PLLX (UPLL): USB FS ×¨ÓÃÊ±ÖÓ 16MHz / 4 * 84 / 7 = 48MHz¡£
+       ÓëÖ÷ PLL µÄ 200MHz / PCLK1 100MHz Ïà»¥¶ÀÁ¢ */
     (void)CLK_PLLxStructInit(&stcUpllInit);
     stcUpllInit.PLLCFGR        = 0UL;
     stcUpllInit.PLLCFGR_f.PLLM = (USB_PLL_M - 1UL);
@@ -174,45 +177,45 @@ static void SystemClockInit(void)
         u32Wait--;
     }
     if (SET != CLK_GetStableStatus(CLK_STB_FLAG_PLLX)) {
-        for (;;) {                  /* PLLX Î´ï¿½ï¿½ï¿½ï¿½, USB ï¿½Þ·ï¿½Ã¶ï¿½ï¿½ */
+        for (;;) {                  /* PLLX Î´¾ÍÐ÷, USB ÎÞ·¨¹¤×÷ */
         }
     }
 
-    /* ï¿½Ð»ï¿½ï¿½ï¿½ PLL Ç°, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SRAM / Flash / GPIO ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ */
+    /* ÇÐµ½ PLL Ç°: ÏÈ°´¸ßÆµÉèÖÃ SRAM / Flash / GPIO µÈ´ýÖÜÆÚ */
     SRAM_SetWaitCycle(SRAM_SRAMH, SRAM_WAIT_CYCLE0, SRAM_WAIT_CYCLE0);
     SRAM_SetWaitCycle((SRAM_SRAM12 | SRAM_SRAM3 | SRAM_SRAMR), SRAM_WAIT_CYCLE1, SRAM_WAIT_CYCLE1);
-    (void)EFM_SetWaitCycle(EFM_WAIT_CYCLE5);        /* 126~200MHz: 5 ï¿½ï¿½ï¿½È´ï¿½ï¿½ï¿½ï¿½ï¿½ */
+    (void)EFM_SetWaitCycle(EFM_WAIT_CYCLE5);        /* 126~200MHz: 5 ¸öµÈ´ýÖÜÆÚ */
     GPIO_SetReadWaitCycle(GPIO_RD_WAIT3);
     (void)PWC_HighSpeedToHighPerformance();
-    CLK_SetSysClockSrc(CLK_SYSCLK_SRC_PLL);         /* ÏµÍ³Ê±ï¿½ï¿½Ô´ï¿½Ðµï¿½ MPLL */
+    CLK_SetSysClockSrc(CLK_SYSCLK_SRC_PLL);         /* ÇÐ»»ÏµÍ³Ê±ÖÓµ½ MPLL */
 
-    /* ï¿½ï¿½Î»ï¿½ï¿½Ê¹ï¿½ï¿½ Cache */
+    /* Ê¹ÄÜ Flash Cache */
     EFM_CacheRamReset(ENABLE);
     EFM_CacheRamReset(DISABLE);
     EFM_CacheCmd(ENABLE);
 }
 
 /**
- * @brief  È«ï¿½ï¿½ï¿½å¼¶ GPIOï¿½ï¿½ï¿½ï¿½Ó¦Ô´ hard_init ï¿½ÐµÄ¸ï¿½ GPIO ï¿½ï¿½ï¿½Ã¿ï¿½
- *         (DRV8301 / ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½ï¿½ï¿½ / LED / PWM ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
- *         USB DP/DM (PA11/PA12) ï¿½ï¿½ usb_bsp.c ï¿½ï¿½ï¿½ï¿½ÎªÄ£ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï²»ï¿½ï¿½ï¿½ï¿½
+ * @brief  GPIO ³õÊ¼»¯, ÔÚ hard_init Àïµ÷ÓÃ (ÅäÖÃÈ«²¿ GPIO)¡£
+ *         (DRV8301 / °´¼ü / »ô¶û / LED / PWM µÈÒý½Å)¡£
+ *         USB DP/DM (PA11/PA12) ÔÚ usb_bsp.c ÀïÅäÖÃ, ´Ë´¦²»´¦Àí¡£
  */
 static void GpioInit(void)
 {
     stc_gpio_init_t stcGpioInit;
 
     /*
-     * PA13/PA14/PA15/PB3/PB4 ï¿½ï¿½Î»ï¿½ï¿½Îª JTAG/SWD ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ PSPCR.SPFE[4:0] =
-     * 0x1Fï¿½ï¿½SPFE ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ PFSR.FSEL, ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ GPIO_Init() ï¿½ï¿½ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½
-     * ï¿½Äºï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½Ð§ (ï¿½Ö²ï¿½ RM 9.4.7 / 9.4.12)ï¿½ï¿½
-     * ï¿½ï¿½ï¿½ï¿½: PA15 = nSCS, PB3/PB4 = KEY2/KEY3 -> ï¿½Í·ï¿½ JTAG ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SWD
-     * (SPFE[0]=JTCK_SWCLK, SPFE[1]=JTMS_SWDIO)ï¿½ï¿½
-     * Â©ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ drv8301 ï¿½ï¿½Ã¿ï¿½ï¿½ SPI ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ FFFFï¿½ï¿½
-     * (Ô´ï¿½ï¿½ nSCS Ò²ï¿½ï¿½ PA15, ï¿½ï¿½ STM32 ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½Ï¾ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ IOï¿½ï¿½)
+     * PA13/PA14/PA15/PB3/PB4 Ä¬ÈÏ¸´ÓÃÎª JTAG/SWD ¹¦ÄÜ, ÓÉ PSPCR.SPFE[4:0] = 0x1F
+     ¹Ø±ÕÈ«²¿¸´ÓÃ; SPFE ÓÅÏÈÓÚ PFSR.FSEL, ËùÒÔÒªÔÚ GPIO_Init() Ç°ÏÈ¹Ø±Õ
+     (¼û RM 9.4.7 / 9.4.12)¡£
+     ËµÃ÷: PA15 = nSCS, PB3/PB4 = KEY2/KEY3 -> ¹Ø±Õ JTAG ºóÈÔ±£Áô SWD
+     (SPFE[0]=JTCK_SWCLK, SPFE[1]=JTMS_SWDIO)¡£
+     ±¾¹¤³Ì DRV8301 µÄ SPI Æ¬Ñ¡ÓÉÈí¼þ¿ØÖÆ, nSCS ½ÓÔÚ PA15 (Ô­ STM32 ÓÃ
+     Ó²¼þÆ¬Ñ¡, ÕâÀï¸ÄÎªÆÕÍ¨ IO)
      */
     GPIO_SetDebugPort((uint8_t)(GPIO_PIN_TDI | GPIO_PIN_TDO | GPIO_PIN_TRST), DISABLE);
 
-    /* ---- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: EN_GATE ï¿½ï¿½, DC_CAL ï¿½ï¿½, LED Ï¨ï¿½ï¿½, SPI ï¿½ï¿½ï¿½Ðµï¿½Æ½ ---- */
+    /* ---- Êý×ÖÊä³ö: EN_GATE µÍ, DC_CAL µÍ, LED Ï¨Ãð, SPI Æ¬Ñ¡¸ß ---- */
     (void)GPIO_StructInit(&stcGpioInit);
     stcGpioInit.u16PinDir        = PIN_DIR_OUT;
     stcGpioInit.u16PinOutputType = PIN_OUT_TYPE_CMOS;
@@ -224,22 +227,22 @@ static void GpioInit(void)
     (void)GPIO_Init(DRV8301_ENGATE_PORT, DRV8301_ENGATE_PIN, &stcGpioInit);
     (void)GPIO_Init(DRV8301_DCCAL_PORT, DRV8301_DCCAL_PIN, &stcGpioInit);
 
-    /* INL ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: DRV8301 3-PWM Ä£Ê½ï¿½ï¿½Îªï¿½Þ¹Ø½Å¡ï¿½ */
+    /* INL Ñ¡Ôñ½Å: DRV8301 3-PWM Ä£Ê½ÅäÖÃÒý½Å */
     (void)GPIO_Init(PWM_INL_PORT, PWM_INL_PIN, &stcGpioInit);
 
-    /* ï¿½ß²ï¿½ PWM ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Îª GPIO Ê±ï¿½È±ï¿½ï¿½Öµï¿½, Ö®ï¿½ó½»¸ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ */
+    /* Ê¹ÄÜ PWM Êä³ö½Å: ÏÈÅä GPIO Îª¸´ÓÃ, ¾ßÌåÓÉ PwmInit Íê³É */
     (void)GPIO_Init(PWM_AH_PORT, PWM_AH_PIN, &stcGpioInit);
     (void)GPIO_Init(PWM_BH_PORT, PWM_BH_PIN, &stcGpioInit);
     (void)GPIO_Init(PWM_CH_PORT, PWM_CH_PIN, &stcGpioInit);
 
-    /* SPI nSCS: ï¿½ï¿½Í¨ GPIO, ï¿½ï¿½ï¿½Ð¸ßµï¿½Æ½ï¿½ï¿½ */
+    /* SPI nSCS: ÆÕÍ¨ GPIO, Èí¼þ¿ØÖÆÆ¬Ñ¡ */
     stcGpioInit.u16PinState = PIN_SET;
     (void)GPIO_Init(DRV8301_SPIx_CS_PORT, DRV8301_SPIx_CS_PIN, &stcGpioInit);
 
-    /* LED ï¿½Íµï¿½Æ½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ê¼Îªï¿½ï¿½ */
+    /* LED ÍÆÍìÊä³ö, ³õÊ¼Ï¨Ãð */
     (void)GPIO_Init(USER_LED_PORT, USER_LED_PIN, &stcGpioInit);
 
-    /* ---- ï¿½ï¿½ï¿½ï¿½: DRV8301 ×´Ì¬ï¿½ï¿½ ---- */
+    /* ---- Êý×ÖÊäÈë: DRV8301 ×´Ì¬/¹ÊÕÏ ---- */
     (void)GPIO_StructInit(&stcGpioInit);
     stcGpioInit.u16PinDir  = PIN_DIR_IN;
     stcGpioInit.u16PullUp  = PIN_PU_ON;
@@ -249,24 +252,24 @@ static void GpioInit(void)
     (void)GPIO_Init(DRV8301_NOCTW_PORT, DRV8301_NOCTW_PIN, &stcGpioInit);
     (void)GPIO_Init(DRV8301_PWRGD_PORT, DRV8301_PWRGD_PIN, &stcGpioInit);
 
-    /* ---- ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ + ï¿½ï¿½ï¿½ï¿½ EIRQ (PFSR.INTE) ----
-       EIRQx ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶Ë¿Ú¹ï¿½ï¿½ï¿½ (PD2/PB3/PB4 ï¿½Ö±ï¿½ï¿½ï¿½ EIRQ2/3/4),
-       Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ PIN_EXTINT_ONï¿½ï¿½ï¿½Ø±ï¿½×¢ï¿½ï¿½: EIRQ3 Í¬ï¿½ï¿½ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½ PA3
-       (ï¿½ï¿½ï¿½ï¿½ C), PA3 ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ EXTINT), ï¿½ï¿½ï¿½ï¿½ï¿½Ø¾Í²ï¿½ï¿½á´®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½ */
+    /* ---- Êý×ÖÊäÈë: DRV8301 ×´Ì¬/¹ÊÕÏ + °´¼ü EIRQ (PFSR.INTE) ----
+       EIRQx µÄÊäÈë¾­ GPIO ¸´ÓÃµÃµ½ (PD2/PB3/PB4 ·Ö±ð¶ÔÓ¦ EIRQ2/3/4),
+       Òò´ËÒý½ÅÒªÅä PIN_EXTINT_ON¡£×¢Òâ: EIRQ3 Óë»ô¶û C ¹²ÓÃ PA3
+       (µÚ¶þ¹¦ÄÜ C), PA3 Í¬Ê±Ê¹ÄÜÁËÍâ²¿ÖÐ¶Ï, Ðè×¢ÒâÁ½Õß¹²ÓÃ¡£ */
     stcGpioInit.u16ExtInt = PIN_EXTINT_ON;
     (void)GPIO_Init(KEY_1_PORT, KEY_1_PIN, &stcGpioInit);
     (void)GPIO_Init(KEY_2_PORT, KEY_2_PIN, &stcGpioInit);
     (void)GPIO_Init(KEY_3_PORT, KEY_3_PIN, &stcGpioInit);
 
-    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½È°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10k);
-       Tmra2CaptInit() ï¿½Ù°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ TMRA_2 ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½ï¿½ï¿½
-       ×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï²»ï¿½ï¿½ u16ExtInt (ï¿½ï¿½ï¿½ï¿½ PA3 ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ EIRQ3 ï¿½ï¿½ï¿½ï¿½ KEY2)ï¿½ï¿½ */
+    /* »ô¶ûÊäÈë: Êý×ÖÊäÈë²¢ÉÏÀ­ (Ô­¹¤³ÌÓÃÍâ²¿ÉÏÀ­ 10k);
+       Tmra2CaptInit() »á°ÑËüÃÇ¸´ÓÃÎª TMRA_2 ²¶»ñ¹¦ÄÜ, ÕâÀïÏÈÇåµô
+       u16ExtInt (±ÜÃâ PA3 ¼È×ö²¶»ñÓÖ×ö EIRQ3, Í¬Ê± KEY2 Ò²ÓÃµ½) */
     stcGpioInit.u16ExtInt = 0U;
     (void)GPIO_Init(HALL_A_PORT, HALL_A_PIN, &stcGpioInit);
     (void)GPIO_Init(HALL_B_PORT, HALL_B_PIN, &stcGpioInit);
     (void)GPIO_Init(HALL_C_PORT, HALL_C_PIN, &stcGpioInit);
 
-    /* ---- SPI2 ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½Ó¹ï¿½ SCK/MISO/MOSI, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SPI2 ï¿½ï¿½ï¿½ï¿½) ---- */
+    /* ---- SPI2 ¸´ÓÃÅäÖÃ (ÅäÖÃ SCK/MISO/MOSI, ¾ßÌåÓÉ SPI2 ÍâÉè½Ó¹Ü) ---- */
     (void)GPIO_StructInit(&stcGpioInit);
     stcGpioInit.u16PinDrv  = PIN_HIGH_DRV;
     stcGpioInit.u16PinAttr = PIN_ATTR_DIGITAL;
@@ -282,7 +285,7 @@ static void GpioInit(void)
 /* ========================== DRV8301 SPI ================================== */
 
 /**
- * @brief  SPI2 ï¿½ï¿½ï¿½ï¿½Îª 16 Î»ï¿½ï¿½ï¿½ï¿½, Ä£Ê½ 1 (CPOL=0, CPHA=1), MSB ï¿½ï¿½Ç°ï¿½ï¿½
+ * @brief  SPI2 Ö÷»úÄ£Ê½ 16 Î»Êý¾Ý, Ä£Ê½ 1 (CPOL=0, CPHA=1), MSB ÏÈÐÐ
  * @param  [in] u32Baud  DRV8301_SPI_BR_x (PCLK1 = 100MHz)
  */
 static void Spi2Init(uint32_t u32Baud)
@@ -293,7 +296,7 @@ static void Spi2Init(uint32_t u32Baud)
     SPI_Cmd(DRV8301_SPI_UNIT, DISABLE);
 
     (void)SPI_StructInit(&stcSpiInit);
-    stcSpiInit.u32WireMode          = SPI_4_WIRE;    /* NSS Î´ï¿½ï¿½ï¿½ï¿½; ï¿½Ø±ï¿½Ä£Ê½ï¿½ï¿½ï¿½Ï¼ï¿½ï¿½ */
+    stcSpiInit.u32WireMode          = SPI_4_WIRE;    /* NSS ÓÉÈí¼þ¿ØÖÆ; ±¾¹¤³ÌÓÃ GPIO Æ¬Ñ¡ */
     stcSpiInit.u32TransMode         = SPI_FULL_DUPLEX;
     stcSpiInit.u32MasterSlave       = SPI_MASTER;
     stcSpiInit.u32ModeFaultDetect   = SPI_MD_FAULT_DETECT_DISABLE;
@@ -308,8 +311,8 @@ static void Spi2Init(uint32_t u32Baud)
 }
 
 /**
- * @brief  È«Ë«ï¿½ï¿½ 16 Î»ï¿½ï¿½ï¿½ï¿½ (Ò»Ö¡ DRV8301 ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
- * @retval ï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½; ï¿½ï¿½ï¿½è³¬Ê±Î´ï¿½ï¿½É·ï¿½ï¿½ï¿½ 0ï¿½ï¿½
+ * @brief  ´«Êä 16 Î»Êý¾Ý (¹© DRV8301 ¶ÁÐ´ÃüÁî)¡£
+ * @retval ¶Á»ØµÄ 16 Î»Êý¾Ý; ³¬Ê±·µ»Ø 0¡£
  */
 static uint16_t Spi2Transfer16(uint16_t u16Tx)
 {
@@ -335,7 +338,7 @@ static uint16_t Spi2Transfer16(uint16_t u16Tx)
 }
 
 /**
- * @brief  ï¿½ï¿½Ö¡ 16 Î»ï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ nSCS ï¿½ï¿½ï¿½Ö¸ßµï¿½Æ½ï¿½ï¿½Ê±ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ DRV8301 ï¿½ï¿½ tCSH)ï¿½ï¿½
+ * @brief  Ã¿´Î 16 Î»´«ÊäÖ®¼ä¸ø nSCS Áô³ö½¨Á¢Ê±¼ä (Âú×ã DRV8301 µÄ tCSH)¡£
  */
 static void SpiDelay(void)
 {
@@ -343,8 +346,8 @@ static void SpiDelay(void)
 }
 
 /**
- * @brief  DRV8301 ï¿½Ä´ï¿½ï¿½ï¿½Ð´ (addr[12:11] | data[10:0])ï¿½ï¿½
- * @retval SPI ï¿½ï¿½ï¿½ä³¬Ê±ï¿½ï¿½ï¿½ï¿½ 0, ï¿½ï¿½ï¿½ò·µ»ï¿½ 1ï¿½ï¿½
+ * @brief  DRV8301 Ð´¼Ä´æÆ÷ (addr[12:11] | data[10:0])¡£
+ * @retval Ê¼ÖÕ·µ»Ø 1 (Ð´ÃüÁî²»Ð£Ñé)¡£
  */
 uint8_t Drv8301Write(uint8_t u8Addr, uint16_t u16Data)
 {
@@ -353,7 +356,7 @@ uint8_t Drv8301Write(uint8_t u8Addr, uint16_t u16Data)
     u16Frame = (uint16_t)(((uint16_t)(u8Addr & 0x03U) << 11U) | (u16Data & 0x07FFU));
 
     DRV_CS_LOW();
-    SpiDelay();                 /* ï¿½ï¿½Ò»ï¿½ï¿½ SCLK ï¿½ï¿½Ö®Ç° nSCS ï¿½Ä½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ */
+    SpiDelay();                 /* À­Æð SCLK Ç°ÏÈµÈ´ý nSCS ½¨Á¢Ê±¼ä */
     (void)Spi2Transfer16(u16Frame);
     DRV_CS_HIGH();
     SpiDelay();
@@ -362,7 +365,7 @@ uint8_t Drv8301Write(uint8_t u8Addr, uint16_t u16Data)
 }
 
 /**
- * @brief  DRV8301 ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Ò»Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½Ú¶ï¿½Ö¡ï¿½Æ³ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ý¡ï¿½
+ * @brief  DRV8301 ¶Á¼Ä´æÆ÷: ÏÈ·¢µØÖ·Ö¡, ÔÙÊÕÊý¾ÝÖ¡¡£
  */
 uint16_t Drv8301Read(uint8_t u8Addr)
 {
@@ -377,7 +380,7 @@ uint16_t Drv8301Read(uint8_t u8Addr)
     DRV_CS_HIGH();
     SpiDelay();
 
-    /* ï¿½Ú¶ï¿½Ö¡: ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ nSCS ï¿½ï¿½ï¿½ï¿½Ê±×°ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ä´ï¿½ï¿½ï¿½ */
+    /* ¶Á²Ù×÷: À­µÍ nSCS ºó·¢ÆðµÚ¶þÖ¡¶ÁÊý¾Ý */
     DRV_CS_LOW();
     SpiDelay();
     u16Data = Spi2Transfer16(0x0000U);
@@ -390,10 +393,11 @@ uint16_t Drv8301Read(uint8_t u8Addr)
 /* ============================== ADC ====================================== */
 
 /**
- * @brief  ADC1 ï¿½ï¿½ï¿½ï¿½ A: I_total, VBUS, IA, IB, NTC ï¿½ï¿½ 5 Í¨ï¿½ï¿½ï¿½ï¿½
- *         Ô´ï¿½ï¿½ï¿½ï¿½: ADC1 ×¢ï¿½ï¿½ï¿½ï¿½ (VBUS/IA/IB/ITOTAL, TIM1_CC4 ï¿½ï¿½ï¿½ï¿½) + DMA ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *         (U/V/W ï¿½ï¿½ï¿½Ñ¹ + NTC)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ U/V/W ï¿½ï¿½ï¿½Ñ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·, ï¿½ï¿½ ADC1 ï¿½ï¿½
- *         DMA, ï¿½ï¿½ï¿½ï¿½ 5 Í¨ï¿½ï¿½ï¿½Ï³ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ A, ï¿½ï¿½ PWM ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief  ADC1 ÐòÁÐ A: I_total, VBUS, IA, IB, NTC ¹² 5 ¸öÍ¨µÀ¡£
+ *         Ô­¹¤³Ì: ADC1 ×¢Èë×é (VBUS/IA/IB/ITOTAL, TIM1_CC4 ´¥·¢) + DMA¡£
+ *         ±¾¹¤³Ì (B2): ÐòÁÐ A ÓÉ TMRA_1 OVF ÊÂ¼þ¾­ AOS Ó²¼þ´¥·¢, ½á¹ûÓÉ
+ *         DMA1 CH0 ´Ó DR2 Æð°á 12 ¸ö 16-bit µ½ g_au16AdcValue, ¿éÍê³É
+ *         ÖÐ¶Ï (INT038) ÀïÅÜ communication_task() (½«À´ FOC Ò²·ÅÕâÀï)¡£
  */
 static void AdcInit(void)
 {
@@ -402,7 +406,7 @@ static void AdcInit(void)
 
     FCG_Fcg3PeriphClockCmd(FCG3_PERIPH_ADC1, ENABLE);
 
-    /* Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: PC0..PC3 (VBUS/IA/IB/NTC) + PA2 (I_total) */
+    /* Ä£ÄâÊäÈë½Å: PC0..PC3 (VBUS/IA/IB/NTC) + PA2 (I_total) */
     (void)GPIO_StructInit(&stcGpioInit);
     stcGpioInit.u16PinAttr = PIN_ATTR_ANALOG;
     (void)GPIO_Init(VBUS_ADC_PORT, (VBUS_ADC_PIN | IA_CURRENT_ADC_PIN | IB_CURRENT_ADC_PIN | NTC_ADC_PIN), &stcGpioInit);
@@ -424,37 +428,107 @@ static void AdcInit(void)
     ADC_SetSampleTime(CM_ADC1, ADC_IA_CH,     ADC_SAMPLE_TIME);
     ADC_SetSampleTime(CM_ADC1, ADC_IB_CH,     ADC_SAMPLE_TIME);
     ADC_SetSampleTime(CM_ADC1, ADC_NTC_CH,    ADC_SAMPLE_TIME);
+
+    /* B2: ÐòÁÐ A Ó²¼þ´¥·¢ (AOS) + ½á¹û DMA °áÔË */
+    AdcHardTriggerConfig();
+    AdcDmaConfig();
+}
+
+/**
+ * @brief  ADC1 ÐòÁÐ A Ó²¼þ´¥·¢ (B2): ÄÚ²¿ÊÂ¼þ EVT0, ´¥·¢Ô´ÓÉ AOS Ñ¡Îª
+ *         TMRA_1 OVF¡£ÓëÔ­Èí¼þ ADC_Start Í¬Ò»Ê±¿Ì (PWM ÖÜÆÚµã), µ«ÓÉÓ²¼þ
+ *         ¾«È·´¥·¢, ²»Õ¼ CPU¡£
+ */
+static void AdcHardTriggerConfig(void)
+{
+    /* AOS Ê±ÖÓ: ADC1 µÄ EVT0 ´¥·¢Ô´ÓÉ AOS_TRGSEL Ñ¡Ôñ */
+    FCG_Fcg0PeriphClockCmd(FCG0_PERIPH_AOS, ENABLE);
+
+    ADC_TriggerConfig(CM_ADC1, ADC_SEQ_A, ADC_HARDTRIG_EVT0);
+    AOS_SetTriggerEventSrc(ADC_HWTRIG_AOS_SEL, ADC_HWTRIG_EVT);
+    ADC_TriggerCmd(CM_ADC1, ADC_SEQ_A, ENABLE);
+}
+
+/**
+ * @brief  ADC ½á¹û DMA (B2): ADC1_EOCA ÊÂ¼þ¾­ AOS ´¥·¢ DMA1 CH0, Ã¿´Î°áÒ»¿é
+ *         (DR2 Æð ADC_DMA_BLOCK_SIZE ¸ö 16-bit); Ô´µØÖ·µÝÔö, Ã¿´Î°áÍêÓÉÖØ¸´
+ *         Ä£Ê½»Ø¾í; ¿éÍê³ÉÖÐ¶ÏÀïÅÜ communication_task()¡£
+ */
+static void AdcDmaConfig(void)
+{
+    stc_dma_init_t stcDmaInit;
+    stc_dma_repeat_init_t stcDmaRptInit;
+    stc_irq_signin_config_t stcIrq;
+
+    (void)DMA_StructInit(&stcDmaInit);
+    stcDmaInit.u32IntEn       = DMA_INT_ENABLE;
+    stcDmaInit.u32SrcAddr     = ADC_DMA_SRC_ADDR;
+    stcDmaInit.u32DestAddr    = (uint32_t)(&g_au16AdcValue[0]);
+    stcDmaInit.u32DataWidth   = ADC_DMA_DATA_WIDTH;
+    stcDmaInit.u32BlockSize   = ADC_DMA_BLOCK_SIZE;
+    stcDmaInit.u32TransCount  = 0UL;                    /* 0: Ò»Ö±°áÔË */
+    stcDmaInit.u32SrcAddrInc  = DMA_SRC_ADDR_INC;
+    stcDmaInit.u32DestAddrInc = DMA_DEST_ADDR_INC;
+
+    FCG_Fcg0PeriphClockCmd(FCG0_PERIPH_DMA1, ENABLE);
+    (void)DMA_Init(ADC_DMA_UNIT, ADC_DMA_CH, &stcDmaInit);
+
+    stcDmaRptInit.u32Mode      = DMA_RPT_BOTH;
+    stcDmaRptInit.u32SrcCount  = ADC_DMA_BLOCK_SIZE;
+    stcDmaRptInit.u32DestCount = ADC_DMA_BLOCK_SIZE;
+    (void)DMA_RepeatInit(ADC_DMA_UNIT, ADC_DMA_CH, &stcDmaRptInit);
+
+    /* AOS: ADC1 ÐòÁÐ A ½áÊøÊÂ¼þ -> DMA1 CH0 */
+    AOS_SetTriggerEventSrc(ADC_DMA_AOS_TRIG_SEL, ADC_DMA_TRIG_EVT);
+
+    /* ¿éÍê³ÉÖÐ¶Ï: Ã¿°áÍêÒ»¿é½øÒ»´Î (20kHz), ½«À´ FOC Ò²·ÅÕâÀï */
+    stcIrq.enIntSrc    = ADC_DMA_INT_SRC;
+    stcIrq.enIRQn      = ADC_DMA_INT_IRQn;
+    stcIrq.pfnCallback = &AdcDmaIrqCallback;
+    IntcIrqInstall(&stcIrq, ADC_DMA_INT_PRIO);
+    DMA_ClearTransCompleteStatus(ADC_DMA_UNIT, ADC_DMA_INT_FLAG);
+
+    DMA_Cmd(ADC_DMA_UNIT, ENABLE);
+    DMA_ChCmd(ADC_DMA_UNIT, ADC_DMA_CH, ENABLE);
+}
+
+/**
+ * @brief  DMA ¿éÍê³ÉÖÐ¶Ï (INT038): ½á¹ûÒÑÔÚ g_au16AdcValue¡£
+ *         Ô­¹¤³ÌÔÚ ADC ÖÐ¶ÏÀï ¶Á½á¹û -> FOC -> communication_task;
+ *         ´Ë´¦ÏÈÖ»ÅÜ PC Á´Â·²ÉÑù, ½Ó FOC ºó°ÑËã·¨¼ÓÔÚ communication_task Ö®Ç°¡£
+ */
+static void AdcDmaIrqCallback(void)
+{
+    DMA_ClearTransCompleteStatus(ADC_DMA_UNIT, ADC_DMA_INT_FLAG);
+    pc_test_sine_task();      /* ÕýÏÒ²âÊÔÐÅºÅ, Ã¿¸ö²ÉÑù½ÚÅÄ¸üÐÂÒ»´Î */
+    communication_task();
 }
 
 /* ============================== PWM ====================================== */
 
 /**
- * @brief  20kHz TMRA_1 ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ã¡£
+ * @brief  20kHz TMRA_1 Òç³öÖÐ¶Ï: Ö»×ö 1ms ·ÖÆµ (ADC ²ÉÑùÒÑ¸ÄÓ²¼þ´¥·¢)¡£
  *
- * Ô´ï¿½ï¿½ï¿½ï¿½: ADC ×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ TIM1_CC4 Ó²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ + JEOC ï¿½Ð¶Ï¡ï¿½
- * ï¿½ï¿½ï¿½ï¿½Ö²: ï¿½ï¿½Í¬Ò»Ê±ï¿½ï¿½ (ï¿½Â¹Üµï¿½Í¨ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§) ï¿½É±ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ A; Í¬Ê±ï¿½Ú´Ë²ï¿½ï¿½ï¿½ 1ms Ê±ï¿½ï¿½ (Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SysTick ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
+ * Ô­¹¤³Ì: ADC ÓÉ TIM1_CC4 ´¥·¢, ×ª»»Íê³É JEOC ÖÐ¶ÏÀïÅÜ motor_run()¡£
+ * ±¾¹¤³Ì (B2): ADC ÐòÁÐ A ÓÉ TMRA_1 OVF ÊÂ¼þ¾­ AOS Ó²¼þ´¥·¢, ½á¹û DMA
+ * °áÔË, ÔÚ DMA ¿éÍê³ÉÖÐ¶ÏÀïÅÜ communication_task(); ±¾ÖÐ¶ÏÖ»±£Áô
+ * 1ms Èí·ÖÆµ (¶ÔÓ¦Ô­¹¤³ÌµÄ SysTick)¡£
  */
 static void Tmra1OvfIrqCallback(void)
 {
     TMRA_ClearStatus(CM_TMRA_1, TMRA_FLAG_OVF);
 
-    if (g_u8AdcBusy == 0U) {
-        g_u8AdcBusy = 1U;
-        (void)ADC_Start(CM_ADC1);
-    }
-
-    /* PC host link sampling tick (20 kHz, internally divided per host rate). */
-    communication_task();
+    /* ADC ²ÉÑùÒÑ¸ÄÓÉ TMRA_1 OVF ÊÂ¼þ¾­ AOS Ó²¼þ´¥·¢ + DMA °áÔË, ¼û AdcInit;
+       communication_task() Å²µ½ DMA ¿éÍê³ÉÖÐ¶Ï (AdcDmaIrqCallback)¡£ */
 
     if (++s_u32PwmCnt >= (PWM_TIM_FREQ / 1000UL)) {
         s_u32PwmCnt = 0UL;
-        g_u8Tick1ms = 1U;           /* ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+        g_u8Tick1ms = 1U;           /* ÖÃ 1ms ±êÖ¾ */
     }
 }
 
 /**
- * @brief  ×¢ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ (INTC Ç©ï¿½ï¿½ + NVIC Ê¹ï¿½ï¿½)ï¿½ï¿½
+ * @brief  °²×°ÖÐ¶Ï: ×¢²á»Øµ÷ (INTC ×¢²á + NVIC Ê¹ÄÜ)¡£
  */
 static void IntcIrqInstall(const stc_irq_signin_config_t *pstcConfig, uint32_t u32Priority)
 {
@@ -467,12 +541,12 @@ static void IntcIrqInstall(const stc_irq_signin_config_t *pstcConfig, uint32_t u
 }
 
 /**
- * @brief  TMRA_1 ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ PWM, 20kHz, ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½Ê¼ 50% (ï¿½ï¿½ï¿½Ä£ï¿½ï¿½Ñ¹)ï¿½ï¿½
- *         Ô´ï¿½ï¿½ï¿½ï¿½: TIM1 ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ 10kHz ï¿½ï¿½ï¿½ï¿½ PWM + BDTR ï¿½ï¿½ï¿½ï¿½; ï¿½ï¿½ï¿½ï¿½ DRV8301
- *         Îª 3-PWM Ä£Ê½ (INL ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
+ * @brief  TMRA_1 »¥²¹ PWM, 20kHz, ³õÊ¼Õ¼¿Õ±È 50% (¶ÔÆëÖÐÐÄ)¡£
+ *         Ô­¹¤³Ì: TIM1 »¥²¹ 10kHz PWM + BDTR ËÀÇø; ±¾¹¤³Ì DRV8301
+ *         ½Ó 3-PWM Ä£Ê½ (INL Ñ¡Ôñ½Å¿ØÖÆ, ÓÉÓ²¼þ²åÈëËÀÇø)¡£
  *
- * EN_GATE Îªï¿½ï¿½ï¿½Ú¼ä¶¨Ê±ï¿½ï¿½ï¿½Õ³ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½Å¼ï¿½ï¿½Ø¶ï¿½), ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ PWM
- * ï¿½ï¿½Ê¹ï¿½ï¿½ DRV8301" ï¿½ï¿½Ë³ï¿½ï¿½Ò»ï¿½Â¡ï¿½
+ * EN_GATE Î´Ê¹ÄÜÊ±ÎÞÊä³ö (Ä¬ÈÏ²»Ê¹ÄÜ), Òò´Ë¼Ó×¢ÊÍËµÃ÷±¾¹¤³Ì PWM
+ * Êä³öµ½ DRV8301 µÄÇ°ÌáÌõ¼þ¡£
  */
 static void PwmInit(void)
 {
@@ -482,20 +556,20 @@ static void PwmInit(void)
 
     FCG_Fcg2PeriphClockCmd(FCG2_PERIPH_TMRA_1, ENABLE);
 
-    /* PA8/PA9/PA10 -> TIMA_1_PWM1/2/3, ï¿½ï¿½ï¿½ï¿½ 4 */
+    /* PA8/PA9/PA10 -> TIMA_1_PWM1/2/3, ¸´ÓÃ¹¦ÄÜ 4 */
     GPIO_SetFunc(PWM_AH_PORT, PWM_AH_PIN, PWM_GPIO_FUNC);
     GPIO_SetFunc(PWM_BH_PORT, PWM_BH_PIN, PWM_GPIO_FUNC);
     GPIO_SetFunc(PWM_CH_PORT, PWM_CH_PIN, PWM_GPIO_FUNC);
 
     (void)TMRA_StructInit(&stcTmraInit);
     stcTmraInit.sw_count.u8ClockDiv  = TMRA_CLK_DIV1;
-    stcTmraInit.sw_count.u8CountMode = TMRA_MD_TRIANGLE;    /* ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ (ï¿½ï¿½Ó¦Ô´ TIM_CounterMode_CenterAligned1) */
+    stcTmraInit.sw_count.u8CountMode = TMRA_MD_TRIANGLE;    /* Èý½Ç²¨ÔØ²¨ (¶ÔÓ¦ STM32 µÄ TIM_CounterMode_CenterAligned1) */
     stcTmraInit.sw_count.u8CountDir  = TMRA_DIR_UP;
     stcTmraInit.u32PeriodValue       = PWM_TIM_PULSE;
     (void)TMRA_Init(CM_TMRA_1, &stcTmraInit);
 
     (void)TMRA_PWM_StructInit(&stcPwmInit);
-    stcPwmInit.u32CompareValue         = PWM_TIM_PULSE / 2UL;   /* 50% Õ¼ï¿½Õ±ï¿½ */
+    stcPwmInit.u32CompareValue         = PWM_TIM_PULSE / 2UL;   /* 50% Õ¼¿Õ±È */
     stcPwmInit.u16StartPolarity        = TMRA_PWM_HIGH;
     stcPwmInit.u16StopPolarity         = TMRA_PWM_LOW;
     stcPwmInit.u16CompareMatchPolarity = TMRA_PWM_INVT;
@@ -505,8 +579,8 @@ static void PwmInit(void)
     (void)TMRA_PWM_Init(CM_TMRA_1, TMRA_CH2, &stcPwmInit);
     (void)TMRA_PWM_Init(CM_TMRA_1, TMRA_CH3, &stcPwmInit);
 
-    /* 20kHz ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ = ADC ï¿½ï¿½ï¿½ï¿½ + 1ms Ê±ï¿½ï¿½ï¿½ï¿½
-       (Ô´ï¿½ï¿½ï¿½ï¿½: NVIC ADC_IRQn ï¿½ï¿½Õ¼ï¿½ï¿½ï¿½È¼ï¿½ 1, Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½Ð¶Ï¡ï¿½) */
+    /* 20kHz ÖÐ¶Ï·þÎñ = ADC ²ÉÑù´¥·¢ + 1ms ·ÖÆµ
+       (Ô­¹¤³Ì: NVIC ADC_IRQn ÓÅÏÈ¼¶Îª 1, ´Ë´¦¸´ÓÃÎª PWM ÖÐ¶Ï) */
     stcIrqSigninConfig.enIRQn      = INT080_IRQn;
     stcIrqSigninConfig.enIntSrc    = INT_SRC_TMRA_1_OVF;
     stcIrqSigninConfig.pfnCallback = &Tmra1OvfIrqCallback;
@@ -518,13 +592,13 @@ static void PwmInit(void)
     TMRA_Start(CM_TMRA_1);
 }
 
-/* ========================= ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (TMRA_2) ============================= */
+/* ========================= »ô¶û²¶»ñ (TMRA_2) ============================= */
 
 /**
- * @brief  TMRA_2 ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½: 16 Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½Ò»ï¿½ï¿½
+ * @brief  TMRA_2 Òç³öÖÐ¶Ï: 16 Î»²¶»ñ¼ÆÊýµÄ¸ßÎ»À©Õ¹¡£
  *
- * ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ TIM2 ï¿½ï¿½ 32 Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: HC32 TMRA ï¿½ï¿½ 16 Î» (PCLK1/16 = 6.25MHz,
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10.49ms), ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ 32 Î», ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½
+ * Ô­¹¤³Ì TIM2 Îª 32 Î»¼ÆÊý: HC32 TMRA Ö»ÓÐ 16 Î» (PCLK1/16 = 6.25MHz,
+ * Òç³öÖÜÆÚ 10.49ms), ÓÃÒç³ö´ÎÊýÀ©Õ¹³É 32 Î», ¹©±ßÑØ¼ä¸ô¼ÆËã¡£
  */
 static void Tmra2OvfIrqCallback(void)
 {
@@ -533,13 +607,13 @@ static void Tmra2OvfIrqCallback(void)
 }
 
 /**
- * @brief  TMRA_2 ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ (INT_SRC_TMRA_2_CMP, ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Â¼ï¿½Ô´)ï¿½ï¿½
+ * @brief  TMRA_2 ²¶»ñÖÐ¶Ï (INT_SRC_TMRA_2_CMP, ÈýÍ¨µÀ¹²ÓÃÒ»¸ö»Øµ÷)¡£
  *
- * Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø½ï¿½Ò»ï¿½ï¿½: È¡ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½Öµ -> ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ 32 Î»Ê±ï¿½ï¿½ï¿½ ->
- * ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½"ï¿½ï¿½Ä£Ê½ï¿½ï¿½Î» + CCR1"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) ->
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (Ô´ï¿½ï¿½ï¿½ï¿½ TIM2_IRQHandler Í¬ï¿½ï¿½ï¿½ï¿½ GPIO ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ï¿½Ç¸ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½Ö»ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬Ê±ï¿½ï¿½×ª, ï¿½ï¿½ï¿½Ð¶Ï°ï¿½
- * ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½Ä±ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, Ê±ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Î»Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½
+ * ´¦ÀíÁ÷³Ì: ÅÐ¶ÏÄÄ¸öÍ¨µÀ´¥·¢ -> ×é×° 32 Î»Ê±¼ä´Á ->
+ * ¼ÆËãÓëÉÏ´Î±ßÑØµÄ¼ä¸ô (²¶»ñÖµ + Òç³ö¸ßÎ») ->
+ * ¶ÁÈ¡»ô¶ûÉÈÇø (Ìæ´úÔ­ TIM2_IRQHandler Àï¶Á GPIO µÄ×ö·¨)¡£
+ * Ê×¸ö±ßÑØ²»¼Æ¼ä¸ô, Ö»¼ÇÂ¼Ê±¼ä´Á; ºóÐø±ßÑØ²Å¸üÐÂ¼ä¸ô¡£
+ * ÉÈÇøµçÆ½ÓÉ Board_HallRead() ¶ÁÈ¡, ¹©»»ÏàÊ¹ÓÃ¡£
  */
 static void Tmra2CaptIrqCallback(void)
 {
@@ -553,19 +627,19 @@ static void Tmra2CaptIrqCallback(void)
         if (TMRA_GetStatus(HALL_CAPT_UNIT, TMRA_FLAG_CMP_CH1 << s_au32HallCh[i]) == SET) {
             TMRA_ClearStatus(HALL_CAPT_UNIT, TMRA_FLAG_CMP_CH1 << s_au32HallCh[i]);
             if (u8EdgeSeen == 0U) {
-                u32Ch = s_au32HallCh[i];    /* È¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Î»Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ */
+                u32Ch = s_au32HallCh[i];    /* ¼ÇÂ¼Ê×¸ö´¥·¢Í¨µÀ */
                 u8EdgeSeen = 1U;
             }
         }
     }
     if (u8EdgeSeen == 0U) {
-        return;                             /* ï¿½Þ²ï¿½ï¿½ï¿½ï¿½Ö¾, ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ */
+        return;                             /* ÎÞÓÐÐ§±ßÑØ, Ö±½Ó·µ»Ø */
     }
 
     u16Cap = (uint16_t)TMRA_GetCompareValue(HALL_CAPT_UNIT, u32Ch);
     u32Now = (s_u32HallOvfCnt << 16) | (uint32_t)u16Cap;
-    /* ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½Ð¡ï¿½ï¿½ OVF ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -> ï¿½ï¿½ï¿½ï¿½Õ·ï¿½ï¿½ï¿½ï¿½ï¿½ OVF ï¿½Ð¶ï¿½
-       ï¿½ï¿½Î´Ö´ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ù¼ï¿½ï¿½ï¿½Ò»ï¿½ï¿½, ï¿½ï¿½ï¿½ï²¹ï¿½ï¿½ 0x10000ï¿½ï¿½ */
+    /* Ê±¼ä´Á×é×°: Èô²¶»ñÖµ½ÏÐ¡µ«ÒÑ·¢Éú OVF Òç³ö, Ôò²¹ÉÏÒ»¸öÒç³öÖÜÆÚ
+       0x10000, ±ÜÃâ¿çÒç³öÊ±¼ÆËã³öµÄ¼ä¸ôÎª¸º */
     if ((TMRA_GetStatus(HALL_CAPT_UNIT, TMRA_FLAG_OVF) == SET) && (u16Cap < 0x8000U)) {
         u32Now += 0x10000UL;
     }
@@ -573,31 +647,31 @@ static void Tmra2CaptIrqCallback(void)
     if (s_u8HallEdgeValid != 0U) {
         g_u32HallEdgeInterval = u32Now - s_u32HallLastEdge;
     } else {
-        g_u32HallEdgeInterval = 0U;         /* ï¿½ï¿½Ò»ï¿½ï¿½Ö»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ */
+        g_u32HallEdgeInterval = 0U;         /* Ê×¸ö±ßÑØÎÞ¼ä¸ô¿ÉÑÔ */
         s_u8HallEdgeValid = 1U;
     }
     s_u32HallLastEdge = u32Now;
     g_u32HallEdgeCnt++;
 
-    /* ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½Ï¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ßµï¿½Æ½ï¿½ï¿½HC32 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¼Ä´ï¿½ï¿½ï¿½ï¿½ë¹¦ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½,
-       ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ Func5 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü¶ï¿½ï¿½ï¿½Æ½ (ï¿½×´Îµï¿½ï¿½Ê±Ë³ï¿½ï¿½ï¿½ï¿½Ö¤)ï¿½ï¿½ */
+    /* ÉÈÇø¶ÁÈ¡: Ö±½Ó¶ÁÈý¸ö»ô¶ûÊäÈëµÄµçÆ½ (HC32 µÄ²¶»ñÍ¨µÀ²»·´Ó³µçÆ½),
+       ÓÃ Func5 ¸´ÓÃºóµÄÊäÈë (Ò²¼´²¶»ñËùÓÃÒý½Å) */
     g_u8HallSector = Board_HallRead();
 }
 
 /**
- * @brief  TMRA_2 ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ TIM2 ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Ú¡ï¿½
+ * @brief  TMRA_2 ²¶»ñ³õÊ¼»¯, ¶ÔÓ¦Ô­ TIM2 µÄ»ô¶û½Ó¿Ú¡£
  *
- *   Ô´ï¿½ï¿½ï¿½ï¿½ (STM32 TIM2)              ï¿½ï¿½ï¿½ï¿½ (TMRA_2)
+ *   Ô­¹¤³Ì (STM32 TIM2)              ±¾¹¤³Ì (TMRA_2)
  *   -----------------------          -----------------------------
- *   3 Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ (TI1S) ï¿½ï¿½Ò»Â·          ï¿½ï¿½ï¿½ï¿½Òª: Ã¿Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½
- *                                    PWM ï¿½ï¿½ï¿½ï¿½, 6 ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *   TI1 Ë«ï¿½ï¿½ï¿½ï¿½                       HICP0|HICP1 Ó²ï¿½ï¿½Ë«ï¿½ï¿½ (Î»ï¿½ï¿½
- *                                    ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
- *   ï¿½ï¿½Ä£Ê½ï¿½ï¿½Î», CCR1 = ï¿½ï¿½ï¿½Ø¼ï¿½ï¿½       ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½
- *   32 Î»ï¿½ï¿½ï¿½ï¿½ @90MHz                  16 Î» @6.25MHz + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹
+ *   3 Í¨µÀÊäÈë (TI1S) ¸´ÓÃ          ²¶»ñ: ÈýÍ¨µÀË«ÑØ²¶»ñ
+ *                                     PWM ÊäÈë, 6 Â·¿É¶ÀÁ¢ÅäÖÃ
+ *   TI1 ²¶»ñ                        HICP0|HICP1 ²¶»ñ (Ë«ÑØ)
+ *                                     Ö»ÓÃÆäÒ»¼´¿É
+ *   Òç³ö¼ÆÊý, CCR1 = ÖÜÆÚ          ±È½ÏÖµ²¶»ñ, Òç³ö¸ßÎ»À©Õ¹
+ *   32 Î»¼ÆÊý @90MHz               16 Î» @6.25MHz + Òç³öÀ©Õ¹
  *
- * ï¿½ï¿½ï¿½ï¿½: PA0/PA1/PA3 -> Func5 (TIMA_2_PWM1/2/4)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ GpioInit()
- * ï¿½ï¿½ï¿½, GPIO_SetFunc Ö»ï¿½ï¿½ FSEL, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òª)ï¿½ï¿½
+ * ×¢Òâ: PA0/PA1/PA3 -> Func5 (TIMA_2_PWM1/2/4), ¸´ÓÃÅäÖÃ¼û GpioInit()
+ * ËµÃ÷, GPIO_SetFunc ÉèÖÃ FSEL, Óë²¶»ñ¹¦ÄÜÒ»ÖÂ¡£
  */
 static void Tmra2CaptInit(void)
 {
@@ -607,12 +681,12 @@ static void Tmra2CaptInit(void)
 
     HALL_CAPT_FCG_ENABLE();
 
-    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ TMRA_2 ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½) */
+    /* ÅäÖÃÒý½Å¸´ÓÃÎª TMRA_2 ²¶»ñ¹¦ÄÜ (¼û GpioInit) */
     GPIO_SetFunc(HALL_A_PORT, HALL_A_PIN, HALL_CAPT_GPIO_FUNC);
     GPIO_SetFunc(HALL_B_PORT, HALL_B_PIN, HALL_CAPT_GPIO_FUNC);
     GPIO_SetFunc(HALL_C_PORT, HALL_C_PIN, HALL_CAPT_GPIO_FUNC);
 
-    /* ï¿½ï¿½ï¿½ï¿½ï¿½Ü¼ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½Ý²ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ 0xFFFF ï¿½ï¿½ï¿½ï¿½ (6.25MHz -> 10.49ms) */
+    /* ²¶»ñ¶¨Ê±Æ÷¼ÆÊý: ÏòÉÏ¼ÆÊý, ÖÜÆÚ 0xFFFF (6.25MHz -> 10.49ms) */
     (void)TMRA_StructInit(&stcTmraInit);
     stcTmraInit.sw_count.u8ClockDiv  = HALL_CAPT_CLK_DIV;
     stcTmraInit.sw_count.u8CountMode = TMRA_MD_SAWTOOTH;
@@ -620,14 +694,14 @@ static void Tmra2CaptInit(void)
     stcTmraInit.u32PeriodValue       = 0xFFFFUL;
     (void)TMRA_Init(HALL_CAPT_UNIT, &stcTmraInit);
 
-    /* ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Ä£Ê½ + Ó²ï¿½ï¿½Ë«ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½|ï¿½Â½ï¿½ï¿½ï¿½Í¬Ê±Ê¹ï¿½ï¿½) */
+    /* ÅäÖÃ²¶»ñ: ÉÏÉýÑØ + ÏÂ½µÑØ (Ë«ÑØ²¶»ñ) */
     for (i = 0U; i < 3U; i++) {
         TMRA_SetFunc(HALL_CAPT_UNIT, s_au32HallCh[i], TMRA_FUNC_CAPT);
         TMRA_HWCaptureCondCmd(HALL_CAPT_UNIT, s_au32HallCh[i], HALL_CAPT_COND_BOTH, ENABLE);
     }
 
-    /* ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ (ï¿½ï¿½Î») + ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DDL_IRQ_PRIO_03, ï¿½ï¿½ TMRA_1 OVF
-       Í¬ï¿½ï¿½: Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼, ï¿½ï¿½ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½Ï½ï¿½ï¿½ï¿½ï¿½ï¿½ FOC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+    /* Ê¹ÄÜÖÐ¶Ï (Òç³ö) + ²¶»ñÖÐ¶Ï, ÓÅÏÈ¼¶ DDL_IRQ_PRIO_03, Óë TMRA_1 OVF
+       Í¬¼¶: ²¶»ñ¶ÔÊµÊ±ÐÔÒªÇó¸ß, Ðè¼°Ê±¼ÇÂ¼Ê±¼ä´Á¹© FOC Ê¹ÓÃ */
     stcIrqSigninConfig.enIRQn      = HALL_CAPT_OVF_IRQn;
     stcIrqSigninConfig.enIntSrc    = HALL_CAPT_OVF_INT_SRC;
     stcIrqSigninConfig.pfnCallback = &Tmra2OvfIrqCallback;
@@ -644,13 +718,13 @@ static void Tmra2CaptInit(void)
     TMRA_Start(HALL_CAPT_UNIT);
 }
 
-/* ========================= ï¿½ï¿½ï¿½ï¿½ EXTI (EIRQ) ============================== */
+/* ========================= °´¼ü EXTI (EIRQ) ============================== */
 
 /**
- * @brief  ï¿½ï¿½ï¿½ï¿½ 1 ï¿½Ð¶ï¿½ (KEY1 = PD2 = EIRQ2, ï¿½Â½ï¿½ï¿½ï¿½)ï¿½ï¿½
+ * @brief  °´¼ü 1 »Øµ÷ (KEY1 = PD2 = EIRQ2, ÏÂ½µÑØ)¡£
  *
- * ï¿½ï¿½ï¿½ï¿½Í¬Ô´ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ key1_flagï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î±ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½, ï¿½ï¿½ Board_Key1msTask()
- * ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×° (ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½É²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½
+ * ÖÐ¶ÏÀïÖ»ÖÃÎ»±êÖ¾: ÖÃ key1_flag ²¢¿ªÊ¼Ïû¶¶¼ÆÊý, ÓÉ Board_Key1msTask()
+ * ÂÖÑ¯µ½Ïû¶¶½áÊøºóÖØÐÂÊ¹ÄÜÖÐ¶Ï (±ÜÃâ¶¶¶¯ÆÚ¼ä·´¸´½øÖÐ¶Ï)¡£
  */
 static void Key1IrqCallback(void)
 {
@@ -677,10 +751,10 @@ static void Key3IrqCallback(void)
 }
 
 /**
- * @brief  ï¿½ï¿½ï¿½ï¿½ EXTI ï¿½ï¿½Ê¼ï¿½ï¿½ (Ô´ï¿½ï¿½ï¿½ï¿½: SYSCFG_EXTILineConfig + EXTI_Init
- *         ï¿½Â½ï¿½ï¿½ï¿½ + NVIC Ê¹ï¿½ï¿½; ï¿½ï¿½ï¿½ï¿½: GPIO PFSR.INTE + EXTINT_Init +
- *         INTC Ç©ï¿½ï¿½)ï¿½ï¿½Ó²ï¿½ï¿½ï¿½Ë²ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ /8) ï¿½ï¿½Õ­ï¿½ï¿½ï¿½ï¿½, ms ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- *         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¡ï¿½ï¿½ï¿½ï¿½È¼ï¿½ DDL_IRQ_PRIO_04: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ PWM/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief  °´¼ü EXTI ³õÊ¼»¯ (Ô­¹¤³Ì: SYSCFG_EXTILineConfig + EXTI_Init
+ *         ÅäÖÃ + NVIC Ê¹ÄÜ; ±¾¹¤³Ì: GPIO PFSR.INTE + EXTINT_Init +
+ *         INTC ×¢²á)¡£ÂË²¨ºó (·ÖÆµ /8) ÓÃÊý×ÖÂË²¨, ms ¼¶È¥¶¶,
+ *         ÓÅÏÈ¼¶ DDL_IRQ_PRIO_04: µÍÓÚµç»ú¿ØÖÆ, ²»Óë PWM/²¶»ñ³åÍ»
  */
 static void KeyExtiInit(void)
 {
@@ -713,11 +787,11 @@ static void KeyExtiInit(void)
 }
 
 /**
- * @brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ñ­ï¿½ï¿½ 1ms ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½Ã¡ï¿½
+ * @brief  °´¼üÉ¨Ãè/Ïû¶¶´¦Àí, ÓÉ 1ms ¶¨Ê±ÈÎÎñµ÷ÓÃ¡£
  *
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ KEY_DEBOUNCE_MS ï¿½ï¿½ï¿½Úºï¿½: ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½Ñ¹ï¿½Ä±ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½Ö¾,
- * ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ü±ï¿½ï¿½ï¿½ï¿½Ð¶Ï¡ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½×¡ (ï¿½ï¿½ï¿½ï¿½), ï¿½ï¿½ï¿½Å±ï¿½ï¿½Öµï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½Â½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Î°ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ò»ï¿½Î±ï¿½Ö¾ (ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÒ»ï¿½ï¿½)ï¿½ï¿½
+ * ÀûÓÃ KEY_DEBOUNCE_MS µÄ¼ÆÊý: Ã¿´Î 1ms µÝÔö, ´ïµ½ãÐÖµºó
+ * ÈÏÎª°´¼üÎÈ¶¨, Çå³ý±êÖ¾²¢ÖØÐÂÊ¹ÄÜ¶ÔÓ¦ÖÐ¶Ï, ÊµÏÖÒ»´Î´¥·¢Ò»´ÎÏìÓ¦
+ * (Èí¼þÏû¶¶, ²»×èÈûÖÐ¶Ï)¡£
  */
 void Board_Key1msTask(void)
 {
@@ -747,11 +821,11 @@ void Board_Key1msTask(void)
     }
 }
 
-/* ============================ ï¿½å¼¶ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ ============================== */
+/* ============================ °å¼¶½Ó¿Ú ============================== */
 
 /**
- * @brief  Ð´ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½Õ±ï¿½, Ã¿ï¿½ï¿½ 0.0 ~ 1.0ï¿½ï¿½
- *         (Ô´ï¿½ï¿½ï¿½ï¿½: FOC ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½Ð´ PWM_TIM->CCR1/2/3ï¿½ï¿½)
+ * @brief  ÉèÖÃÈýÏàÕ¼¿Õ±È, ·¶Î§ 0.0 ~ 1.0¡£
+ *         (¶ÔÓ¦Ô­¹¤³Ì: FOC ¼ÆËãºóÐ´ PWM_TIM->CCR1/2/3)
  */
 void Board_PwmSetDuty(float fA, float fB, float fC)
 {
@@ -768,8 +842,8 @@ void Board_PwmSetDuty(float fA, float fB, float fC)
 }
 
 /**
- * @brief  PWM ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½Ø¡ï¿½STM32: TIM_CtrlPWMOutputs(PWM_TIM, x)ï¿½ï¿½
- *         ï¿½Îºï¿½Ê±ï¿½Ìµï¿½ï¿½Ã¶ï¿½ï¿½ï¿½È«: EN_GATE Îªï¿½ï¿½Ê±ï¿½Å¼ï¿½Ê¼ï¿½Õ¹Ø¶Ï¡ï¿½
+ * @brief  PWM Êä³öÊ¹ÄÜ/¹Ø±Õ (¶ÔÓ¦ STM32: TIM_CtrlPWMOutputs(PWM_TIM, x))¡£
+ *         Ä¬ÈÏ²»Ê¹ÄÜ: EN_GATE Î´À­¸ßÊ±²»Êä³öµ½ DRV8301¡£
  */
 void Board_MotorPwmEnable(void)
 {
@@ -787,8 +861,8 @@ void Board_MotorPwmDisable(void)
 }
 
 /**
- * @brief  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬, bit0 = A, bit1 = B, bit2 = Cï¿½ï¿½
- *         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Func5 (TMRA_2 ï¿½ï¿½ï¿½ï¿½) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¶ï¿½ - ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½ë¹¦ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief  ¶ÁÈ¡»ô¶ûÉÈÇø, bit0 = A, bit1 = B, bit2 = C¡£
+ *         Òý½ÅÒÑÓÉ Func5 (TMRA_2 ²¶»ñ) ¸´ÓÃ, ÕâÀïÖ±½Ó¶ÁÊäÈëµçÆ½¡£
  */
 uint8_t Board_HallRead(void)
 {
@@ -802,28 +876,28 @@ uint8_t Board_HallRead(void)
 }
 
 /**
- * @brief  ï¿½å¼¶Ó²ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½, Ô´ï¿½ï¿½ï¿½ï¿½ hard_init() ï¿½ï¿½ï¿½ï¿½Ö²ï¿½ï¿½
+ * @brief  °å¼¶³õÊ¼»¯Èë¿Ú, ÓÉ main() µ÷ÓÃ¡£
  *
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½×´Ì¬ (main ï¿½ï¿½ï¿½Èµï¿½ LL_PERIPH_WE(...),
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ LL_PERIPH_FCG ï¿½ï¿½ LL_PERIPH_GPIO)ï¿½ï¿½SystemClockInit() Ö´ï¿½ï¿½ï¿½ï¿½
- * Ö®ï¿½ï¿½ DDL_DelayMS/US ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ã¡ï¿½
- * USB ï¿½è±¸Õ» (usb_dev_init, ï¿½ï¿½ usb_bsp ï¿½ï¿½ï¿½ï¿½/Ê±ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½Ì¨ + CDC ï¿½ï¿½) ï¿½ï¿½
- * main ï¿½ï¿½ hard_init() Ö®ï¿½ó¡¢¼Ä´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½Ã¡ï¿½
+ * µ÷ÓÃÔ¼¶¨: ±ØÐëÔÚ´ò¿ªÐ´±£»¤Ç°µ÷ÓÃ (main Àï LL_PERIPH_WE(...)£¬
+ * ÒòÎªÒªÓÃµ½ LL_PERIPH_FCG ºÍ LL_PERIPH_GPIO)¡£SystemClockInit() Àï
+ * ÓÃµ½ DDL_DelayMS/US ÑÓÊ±¡£
+ * USB ³õÊ¼»¯ (usb_dev_init, ¼û usb_bsp Òý½Å/Ê±ÖÓ/¶Ëµã + CDC Çý¶¯) ÔÚ
+ * main Àï hard_init() Ö®ºóÍê³É¡£
  */
 void hard_init(void)
 {
-    SystemClockInit();                  /* Ô´: RCC_GetClocksFreq + ï¿½ï¿½Ê±ï¿½ï¿½Ê¹ï¿½ï¿½ (ï¿½ï¿½ USB PLLX) */
-    GpioInit();                         /* Ô´: DRV8301 / OLED / LED / ï¿½ï¿½ï¿½ï¿½ / ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
-    Spi2Init(DRV8301_SPI_BR_FAST);      /* Ô´: SPI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ drv8301_init() ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½å¼¶ */
-    AdcInit();                          /* Ô´: ADC + DMA ï¿½ï¿½ï¿½ï¿½ */
-    PwmInit();                          /* Ô´: TIM1 PWM + NVIC ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½ï¿½ */
-    Tmra2CaptInit();                    /* Ô´: TIM2 ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿ï¿½ */
-    KeyExtiInit();                      /* Ô´: ï¿½ï¿½ï¿½ï¿½ EXTI + NVIC ï¿½ï¿½ï¿½ï¿½ */
+    SystemClockInit();                  /* Ê±ÖÓ: ÏµÍ³Ê±ÖÓ + ÍâÉèÊ±ÖÓ (º¬ USB PLLX) */
+    GpioInit();                         /* GPIO: DRV8301 / OLED / LED / °´¼ü / »ô¶ûÒý½Å */
+    Spi2Init(DRV8301_SPI_BR_FAST);      /* SPI: ³õÊ¼»¯ SPI2, ¹© drv8301_init() Ê¹ÓÃ */
+    AdcInit();                          /* ADC: ADC ³õÊ¼»¯ */
+    PwmInit();                          /* PWM: TMRA_1 PWM + NVIC ÖÐ¶Ï */
+    Tmra2CaptInit();                    /* TMRA_2: »ô¶û²¶»ñ */
+    KeyExtiInit();                      /* °´¼ü: Íâ²¿ EXTI + NVIC ÅäÖÃ */
 
     /*
-     * Ô´ï¿½ï¿½ï¿½ï¿½ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ EN_GATE (GPIO_SetBits)ï¿½ï¿½
-     * ï¿½ï¿½ï¿½å±£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¼ï¿½ï¿½Ø¶ï¿½, Ö±ï¿½ï¿½ drv8301_init() Í¨ï¿½ï¿½ SPI ï¿½ï¿½ï¿½Ã²ï¿½Ð£ï¿½ï¿½
-     * DRV8301 ï¿½Ä´ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ (ï¿½ï¿½ drv8301_test ï¿½Ä²ï¿½ï¿½ï¿½Ò»ï¿½ï¿½)ï¿½ï¿½
+     * ³õÊ¼±£³Ö EN_GATE ÎªµÍ (²»Ê¹ÄÜ¹¦ÂÊ¼¶)¡£
+     ÕæÕýÊ¹ÄÜÐèÔÚÍê³É drv8301_init() µÄ SPI ÅäÖÃÖ®ºó;
+     DRV8301 ÉÏµç²»»á×Ô¶¯Êä³ö (¼û drv8301_test µÄÓÃ·¨)¡£
      */
     EN_GATE_LOW();
     DC_CAL_LOW();

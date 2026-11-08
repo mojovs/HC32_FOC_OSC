@@ -35,6 +35,13 @@ extern float   g_pcFloatDownload[10];
 extern float   g_pcSpeedRef;
 extern uint8_t g_pcMotorStartStop;
 
+/* Firmware-generated sine test signal (float wave channel 0). It is advanced
+ * once per ADC/DMA tick, so pc_test_sine_task() must be called from the same
+ * ISR that runs communication_task(). Handy for checking the whole
+ * firmware -> USB CDC -> PC host path before the motor is driven. */
+extern float g_pcSineTest;
+extern void  pc_test_sine_task(void);
+
 /* Register every channel and reset the protocol engine. Call once at startup,
  * before USB enumeration is complete. */
 extern void pc_communication_init(void);

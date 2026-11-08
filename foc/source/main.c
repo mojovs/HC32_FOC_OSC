@@ -1,42 +1,40 @@
 /**
  *******************************************************************************
  * @file  foc/source/main.c
- * @brief HC32F460KETA + DRV8301 FOC ï¿½ï¿½ï¿½ï¿½ - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief HC32F460KETA + DRV8301 FOC ¹Ì¼þ - Ö÷º¯Êý
  *
- * ï¿½ï¿½Ö²ï¿½ï¿½ STM32F4 ï¿½ï¿½ï¿½×¹ï¿½ï¿½ï¿½ main():
- *   ï¿½ï¿½ï¿½×´ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½/code/user/main.c
+ * ¶ÔÕÕ STM32F4 Ô­¹¤³ÌµÄÖ÷º¯Êý main():
+ *   ÅäÌ×´úÂë/´úÂë/code/user/main.c
  *
- * Ô´ main():                                ï¿½ï¿½ï¿½ï¿½Ö²:
- *   hard_init();                              hard_init();              ï¿½ï¿½ï¿½ï¿½ï¿½
- *                                             (Ê±ï¿½Óºï¿½ USB PLLX/GPIO/SPI/
- *                                             ADC/PWM/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ EXTI)
- *   OLED_Init();                              Î´ï¿½ï¿½Ö² (ï¿½ï¿½ï¿½ï¿½ OLED ï¿½ï¿½ï¿½ï¿½Îª I2C
- *                                             PC7/PC8, Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SPI)
- *   drv8301_init();                           ï¿½ï¿½ï¿½ï¿½Ö² (motor/drv8301.c)
- *   pc_communication_init();                  usb_dev_init() ï¿½ï¿½ï¿½ï¿½ï¿½
- *                                             (USB CDC ï¿½ï¿½ï¿½â´®ï¿½ï¿½, ï¿½ï¿½Ö²ï¿½ï¿½
- *                                             usb_dev_cdc ï¿½ï¿½ï¿½ï¿½; USART3
- *                                             ï¿½ï¿½ï¿½ï¿½Ì¨ + CDC<->CN1 ï¿½ï¿½ +
- *                                             ï¿½ï¿½ï¿½ï¿½ RX ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Î»)
- *   foc_algorithm_initialize();               ï¿½ï¿½ï¿½ï¿½Ö² (motor/foc_*.c)
- *   if (get_offset_flag==0) {                 PWM ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ hard_init ï¿½ï¿½
- *     get_offset_flag=1;                      PwmInit() ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ - EN_GATE
- *     TIM_CtrlPWMOutputs(ENABLE);             ï¿½ï¿½ï¿½Öµï¿½ (ï¿½Å¼ï¿½ï¿½Ø¶ï¿½), ï¿½ï¿½
- *   }                                         drv8301_init() ï¿½ï¿½Ö²ï¿½ï¿½ï¿½Ù¿ï¿½
- *   while(1) {                                vcp_task()/USB ï¿½Â¼ï¿½/ADC/1ms;
- *     drv8301_protection();                   Ô¤ï¿½ï¿½ drv8301_protection() ï¿½ï¿½
- *     oled_display_handle();                  oled_display_handle() ï¿½ï¿½ï¿½Øµï¿½
+ * ±¾¹¤³Ì main():                          ËµÃ÷:
+ *   hard_init();                            °å¼¶³õÊ¼»¯: Ê±ÖÓ 200MHz/USB PLLX
+ *                                           + GPIO/SPI/ADC/PWM/»ô¶û²¶»ñ/
+ *                                           °´¼ü EXTI (Ïê¼û board_config.c)
+ *   OLED_Init();                            ´ýÒÆÖ² (±¾°å OLED ×ß I2C PC7/PC8,
+ *                                           Óë DRV8301 µÄ SPI Òý½Å²»³åÍ»)
+ *   drv8301_init();                         ´ýÒÆÖ² (motor/drv8301.c)
+ *   pc_communication_init();                ·ÅÔÚ usb_dev_init() Ö®Ç°µ÷ÓÃ
+ *                                           (USB CDC Ð­ÒéÒýÇæ; USART3 ·Ç×èÈû
+ *                                           + CDC<->CN1 ÇÅ½Ó + RX »·ÐÎ»º³å)
+ *   foc_algorithm_initialize();             ´ýÒÆÖ² (motor/foc_*.c)
+ *   if (get_offset_flag==0) {               PWM Êä³öÊ¹ÄÜÓÉ hard_init ÀïµÄ
+ *     get_offset_flag=1;                    PwmInit() Íê³É; ´Ë´¦ÔÙÀ­¸ß
+ *     TIM_CtrlPWMOutputs(ENABLE);           EN_GATE ºó²Å»áÓÐÊä³ö, Ö®ºó
+ *   }                                       drv8301_init() ²ÅÄÜÉúÐ§
+ *   while(1) {                              Ö÷Ñ­»·: vcp_task()/USB ÊÂ¼þ/ADC/1ms
+ *     drv8301_protection();                 ´ýÒÆÖ² drv8301_protection()
+ *     oled_display_handle();                ´ýÒÆÖ² oled_display_handle()
  *   }
  *
- * Í¨ï¿½Å¼Ü¹ï¿½ (usb_dev_cdc + usart_uart_int ï¿½Ï²ï¿½):
- *   - USB CDC ï¿½ï¿½ï¿½â´®ï¿½ï¿½ <-> CN1 (USART3) Ë«ï¿½ï¿½ï¿½Å½ï¿½;
- *   - board -> PC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½ vcp_send() (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ PC Í¨ï¿½Åµï¿½ï¿½ï¿½ï¿½ï¿½);
- *   - CN1 ï¿½Õµï¿½ï¿½ï¿½ï¿½Ö½ï¿½Í¬Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½, UART_ReadByte() ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡,
- *     ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (usart_uart_int ï¿½ï¿½ï¿½ï¿½);
- *   - printf ï¿½ï¿½ USART3 TX (CN1); USB/USART ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½È¼ï¿½ï¿½ï¿½ï¿½,
- *     ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Æ»ï¿½ï¿½Ð¶Ï¿ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Õ¼ï¿½ï¿½
+ * ±¾¹¤³ÌËµÃ÷ (ÓÉ usb_dev_cdc + usart_uart_int ºÏ²¢¶øÀ´):
+ *   - USB CDC Óë CN1 (USART3) Ë«ÏòÇÅ½Ó;
+ *   - board -> PC µÄÊý¾ÝÍ³Ò»ÓÉ vcp_send() ×·¼Ó½ø IN »· (º¬·¢Íù PC µÄÎÄ±¾);
+ *   - CN1 ÊÕµ½µÄ×Ö½ÚÐ´Èë½ÓÊÕ»·ÐÎ»º³å, ÓÉ UART_ReadByte() Öð×Ö½ÚÈ¡ÓÃ,
+ *     ÔÚ·ÇÖÐ¶Ï»·¾³´¦Àí (usart_uart_int µÄ×ö·¨);
+ *   - printf ×ß USART3 TX (CN1); USB Óë USART Á½Â·»¥²»×èÈû,
+ *     ±ãÓÚµ÷ÊÔÓëÐ­Òé²¢ÐÐ¡£
  *
- * hard_init() ï¿½ï¿½Éºï¿½ LED ï¿½ï¿½ 1Hz ï¿½ï¿½Ë¸, ï¿½ï¿½Îªï¿½ï¿½Ö²ï¿½Ú¼ï¿½ï¿½ï¿½Ïµï¿½Ö¸Ê¾ï¿½ï¿½
+ * hard_init() Íê³Éºó½øÈëÖ÷Ñ­»·, LED ÒÔ 1Hz ÐÄÌøÉÁË¸, Ö¸Ê¾ÏµÍ³ÔËÐÐÖÐ¡£
  *******************************************************************************
  * Copyright (C) 2022-2025, Xiaohua Semiconductor Co., Ltd. All rights reserved.
  *
@@ -49,7 +47,7 @@
  */
 
 /*******************************************************************************
- * Í·ï¿½Ä¼ï¿½
+ * °üº¬µÄÍ·ÎÄ¼þ
  ******************************************************************************/
 #include "main.h"
 #include "board_config.h"
@@ -69,60 +67,59 @@
  */
 
 /*******************************************************************************
- * ï¿½Ö²ï¿½ï¿½ê¶¨ï¿½ï¿½
+ * ºê¶¨Òå
  ******************************************************************************/
-/* ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
-   ×¢ï¿½ï¿½: LL_PERIPH_FCG ï¿½ï¿½ï¿½ë±£ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ CLK_SetSysClockSrc(PLL)
-   ï¿½ï¿½ï¿½ï¿½ PWC_FCG0PC.PRT0 Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DDL_AssertHandler() ï¿½ï¿¨ï¿½ï¿½ï¿½ï¿½ */
+/* ÍâÉèÐ´±£»¤ÑÚÂë: ¸²¸ÇºóÃæÐèÒª¸ÄµÄ GPIO/FCG/PWC/EFM/SRAM¡£
+   ×¢Òâ: ÈôÔÚ LL_PERIPH_WP() Ö®ºó²Åµ÷ÓÃ CLK_SetSysClockSrc(PLL)
+   »òÐ´ PWC_FCG0PC.PRT0, »á´¥·¢ DDL_AssertHandler() ¶ÏÑÔ¡£ */
 #define LL_PERIPH_SEL                   (LL_PERIPH_GPIO | LL_PERIPH_FCG | LL_PERIPH_PWC_CLK_RMU | \
                                          LL_PERIPH_EFM | LL_PERIPH_SRAM)
 
-/* Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½: GPIO ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï·­×ª PC9 (Í¬ usb_dev_cdc)ï¿½ï¿½ */
+/* Ð´±£»¤ºóÈÔ±£Áô GPIO ¿ÉÐ´: ±ãÓÚµ÷ÊÔµãµÆ PC9 (¼û usb_dev_cdc)¡£ */
 #define LL_PERIPH_WP_SEL                (LL_PERIPH_EFM | LL_PERIPH_PWC_CLK_RMU | LL_PERIPH_SRAM)
 
-/* LED ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Î» ms */
+/* LED ·­×ªÖÜÆÚ, µ¥Î» ms */
 #define LED_TOGGLE_MS                   (500UL)
 
 /*******************************************************************************
- * È«ï¿½Ö±ï¿½ï¿½ï¿½
+ * È«¾Ö±äÁ¿
  ******************************************************************************/
-/* USB ï¿½è±¸Êµï¿½ï¿½ (usb_dev_init/ï¿½Ð¶Ï´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ */
+/* USB Éè±¸ÊµÀý (¹© usb_dev_init/ÊÂ¼þ»Øµ÷ÒýÓÃ)¡£ */
 usb_core_instance usb_dev;
 
 /*******************************************************************************
- * ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ('static')
+ * ±¾µØº¯ÊýÉùÃ÷ ('static')
  ******************************************************************************/
 static void CompanionModulesInit(void);
 static void UsbEventTask(void);
 
 /*******************************************************************************
- * ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ - È«ï¿½ï¿½ ('extern') ï¿½ï¿½Ö²ï¿½ ('static')
+ * º¯ÊýÊµÏÖ - È«¾Ö ('extern') Óë±¾µØ ('static')
  ******************************************************************************/
 
 /**
- * @brief  Ô´ main() ï¿½ï¿½ï¿½Îµï¿½ï¿½ÃµÄ¸ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
- *         Ã¿ï¿½ï¿½Ä£ï¿½éµ¥ï¿½ï¿½ï¿½ï¿½Ö²; ï¿½ï¿½ï¿½ï±£ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ÌµÄ³ï¿½Ê¼ï¿½ï¿½Ë³ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½É¡ï¿½
+ * @brief  ÓÉ main() µ÷ÓÃµÄÅäÌ×Ä£¿é³õÊ¼»¯»ã×Ü¡£
+ *         Ä¿Ç°Ö»³õÊ¼»¯ PC ÉÏÎ»»úÁ´Â·; ÆäÓàÄ£¿é¼ûÏÂ·½ TODO¡£
  */
 static void CompanionModulesInit(void)
 {
     /* PC host tool link: reset the engine and register all channels. */
     pc_communication_init();
-    /* OLED_Init();                    - TODO: ï¿½ï¿½ï¿½ï¿½ OLED ï¿½ï¿½ I2C ï¿½Ó¿ï¿½ (PC7/PC8),
-                                         Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SPI ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
-                                         ï¿½ï¿½ï¿½ï¿½Ö² I2C SSD1306 ï¿½ï¿½ï¿½ï¿½ */
-    /* drv8301_init();                 - TODO: ï¿½ï¿½Ö² motor/drv8301.c, Ö®ï¿½ï¿½
-                                         ï¿½ï¿½ï¿½ï¿½ EN_GATE Ê¹ï¿½ï¿½ DRV8301, ï¿½ï¿½ï¿½ï¿½
-                                         ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê¶¨ (ï¿½ï¿½Ó¦ get_offset_flag) */
-    /* pc_communication_init();        - ï¿½ï¿½ï¿½ï¿½ usb_dev_init() ï¿½Ðµï¿½: USB CDC
-                                         ï¿½ï¿½ï¿½â´®ï¿½Ú¼ï¿½Ô´ï¿½ï¿½ï¿½Ìµï¿½ PC Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,
-                                         vcp_send()/UART_ReadByte() ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð½Ó¿ï¿½ */
-    /* foc_algorithm_initialize();     - TODO: ï¿½ï¿½Ö² motor/foc_algorithm.c */
+    /* OLED_Init();                    - TODO: ´ýÒÆÖ² OLED Çý¶¯ (I2C, PC7/PC8),
+                                         Óë DRV8301 µÄ SPI Òý½Å²»³åÍ» */
+    /* drv8301_init();                 - TODO: ÒÆÖ² motor/drv8301.c, Í¨¹ý SPI
+                                         ÅäÖÃ EN_GATE/µçÁ÷·Å´ó/¹ÊÕÏµÈ¼Ä´æÆ÷
+                                         (ÒÀÀµ get_offset_flag) */
+    /* pc_communication_init();        - ÒÑÒÆµ½ usb_dev_init() Ö®Ç°: USB CDC
+                                         ÐèÏÈÍê³ÉÃ¶¾ÙÔÙ¹© PC ÉÏÎ»»úÍ¨ÐÅ;
+                                         vcp_send()/UART_ReadByte() ÒÑ¾ÍÐ÷ */
+    /* foc_algorithm_initialize();     - TODO: ÒÆÖ² motor/foc_algorithm.c */
 }
 
 /**
- * @brief  ï¿½ï¿½Ó¡ USB Õ»ï¿½Â¼ï¿½ (ï¿½ï¿½ usb_dev_user.c ï¿½Ä»Øµï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½Î»)ï¿½ï¿½
- *         printf Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½Ü½ï¿½ USB ï¿½Ð¶ï¿½ (Í¬ usb_dev_cdc)ï¿½ï¿½
- *         ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ communication_handle() ï¿½Ä½ï¿½É«: PC Í¨ï¿½ï¿½×´Ì¬Î¬ï¿½ï¿½ï¿½ï¿½
+ * @brief  ´¦Àí USB ÊÂ¼þ (ÓÉ usb_dev_user.c µÄÊÂ¼þ»Øµ÷ÖÃÎ»)¡£
+ *         printf Êä³öµ½ CN1, ²»Ó°Ïì USB Êý¾ÝÁ÷ (¼û usb_dev_cdc);
+ *         ÕæÕýµÄÐ­Òé½âÎöÔÚ communication_handle() Àï: PC ÃüÁî°´Ðè½âÎö¡£
  */
 static void UsbEventTask(void)
 {
@@ -147,7 +144,7 @@ static void UsbEventTask(void)
         case USB_EVT_CONFIG:
             printf(">> USB configured, CDC ready (COM port open)\r\n");
 #if (VCP_BRIDGE_TO_UART != 0U)
-            /* Ö±ï¿½ï¿½ï¿½ï¿½ CDC IN ï¿½Ëµï¿½ï¿½ï¿½Êºï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ CN1ï¿½ï¿½ */
+/* °ÑÎÊºòÓï×·¼Ó½ø CDC IN »·ÐÎ»º³å, ÓÉ USB ·¢Íù PC ÖÕ¶Ë¡£ */
             vcp_send(m_au8Greeting, (uint32_t)(sizeof(m_au8Greeting) - 1U));
 #endif
             break;
@@ -166,7 +163,7 @@ static void UsbEventTask(void)
 }
 
 /**
- * @brief  FOC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ * @brief  FOC ¹Ì¼þÖ÷Èë¿Ú (ÓÀ²»·µ»Ø)
  * @param  None
  * @retval int32_t return value, if needed
  */
@@ -174,24 +171,24 @@ int32_t main(void)
 {
     stc_usb_port_identify stcPortIdentify;
 
-    /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ */
+/* ÏÈ´ò¿ªÍâÉèÐ´±£»¤, ÔÊÐíºóÐø³õÊ¼»¯¼Ä´æÆ÷ */
     LL_PERIPH_WE(LL_PERIPH_SEL);
 
-    /* ï¿½å¼¶ï¿½ï¿½Ê¼ï¿½ï¿½: Ê±ï¿½ï¿½ 200MHz + USB PLLX 48MHz, GPIO, DRV8301 SPI, ADC,
-       20kHz PWM, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ EXTIï¿½ï¿½ */
+/* °å¼¶³õÊ¼»¯: Ê±ÖÓ 200MHz + USB PLLX 48MHz, GPIO, DRV8301 SPI, ADC,
+   20kHz PWM, »ô¶û²¶»ñ, °´¼ü EXTI¡£ */
     hard_init();
 
     CompanionModulesInit();
 
-    /* USB CDC ï¿½è±¸Õ» (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ pc_communication_init()):
-       usb_dev_init() -> usb_bsp_init() (DP/DM ï¿½ï¿½ï¿½ï¿½, USB Ê±ï¿½ï¿½Ô´, USART3
-       ï¿½ï¿½ï¿½ï¿½Ì¨) -> ï¿½Úºï¿½/FIFO/ï¿½Ð¶ï¿½ (INT030, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½) -> CDC ï¿½ï¿½ vcp_init()
-       (USART3 ï¿½Õ·ï¿½ + ï¿½ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½Ã¡ï¿½ */
+/* USB CDC ³õÊ¼»¯ (±ØÐëÔÚ pc_communication_init() Ö®Ç°):
+   usb_dev_init() -> usb_bsp_init() (DP/DM Òý½Å, USB Ê±ÖÓ, USART3 Òý½Å)
+   -> ÖÐ¶Ï/FIFO/¶Ëµã (INT030, Óë USB ÊÂ¼þ) -> CDC Çý¶¯ vcp_init()
+   (USART3 ÅäÖÃ + ½ÓÊÕÖÐ¶Ï), Íê³ÉÃ¶¾Ùºó PC ²ÅÄÜÍ¨ÐÅ¡£ */
     stcPortIdentify.u8CoreID = USBFS_CORE_ID;
     usb_dev_init(&usb_dev, &stcPortIdentify, &user_desc, &class_cdc_cbk, &user_cb);
 
-    /* ï¿½ï¿½ï¿½Ø²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-       GPIO/FCG ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ï¿½Æ·ï¿½×ª, ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Å¿Ø°ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½)ï¿½ï¿½ */
+/* ³õÊ¼»¯Íê³Éºó¼Ó»ØÐ´±£»¤:
+   GPIO/FCG µÈ²»¿ÉÔÙ¸Ä (·ÀÎóÐ´, ½ö±£Áô EFM/PWC/SRAM ¿ÉÐ´)¡£ */
     LL_PERIPH_WP(LL_PERIPH_WP_SEL);
 
     printf("\r\n========================================\r\n");
@@ -201,23 +198,18 @@ int32_t main(void)
     printf("========================================\r\n");
 
     for (;;) {
-        /* CDC(OUT) -> USART3 TX ï¿½ï¿½ï¿½ï¿½ï¿½Å¿ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (USB -> CN1 ï¿½ï¿½)ï¿½ï¿½ */
+/* CDC(OUT) -> USART3 TX µÄÅÅ¿ÕÈÎÎñ, ÔÚÖ÷Ñ­»·Àï×ö (USB -> CN1 ·½Ïò)¡£ */
         vcp_task();
         communication_send_task();   /* flush a finished PC host wave frame */
 
-        /* USB Õ»ï¿½Â¼ï¿½ï¿½Ï±ï¿½ (ï¿½ï¿½Ó¦Ô´ï¿½ï¿½ï¿½ï¿½ communication_handle ï¿½ï¿½Õ¼Î»)ï¿½ï¿½ */
+/* USB ÊÂ¼þ´¦Àí (Ð­Òé½âÎöÔÚ communication_handle Àï)¡£ */
         UsbEventTask();
 
-        /* ADC ï¿½ï¿½ï¿½ï¿½ A ×ªï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ 20kHz PWM ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½:
-           TODO ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö²ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½
-           (Ô´ï¿½ï¿½ï¿½ï¿½: drv8301_protection() + FOC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ */
-        if (ADC_GetStatus(CM_ADC1, ADC_FLAG_EOCA) == SET) {
-            ADC_ClearStatus(CM_ADC1, ADC_FLAG_EOCA);
-            g_u8AdcBusy = 0U;
-        }
+/* ADC ÐòÁÐ A ÒÑ¸ÄÓÉ TMRA_1 OVF ÊÂ¼þ¾­ AOS Ó²¼þ´¥·¢, ½á¹ûÓÉ DMA °áµ½
+   g_au16AdcValue, ¿éÍê³ÉÖÐ¶ÏÀïÅÜ communication_task(); Ö÷Ñ­»·²»ÔÙÂÖÑ¯ EOCA¡£ */
 
-        /* 1ms Ê±ï¿½ï¿½ (Ô´ï¿½ï¿½ï¿½ï¿½: SysTick_Handler / TimingDelay_Decrement)ï¿½ï¿½
-           TODO: drv8301_protection() ï¿½ï¿½ï¿½Ù¶È»ï¿½ï¿½ï¿½ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½Ú´Ë¡ï¿½ */
+/* 1ms ½ÚÅÄ (Ô­¹¤³ÌÓÃ SysTick_Handler/TimingDelay_Decrement;
+   ±¾¹¤³ÌÓÉ board_config.c µÄ PWM ¼ÆÆµÅÉÉú) - TODO: ÖÜÆÚµ÷ÓÃ drv8301_protection() */
         if (g_u8Tick1ms != 0U) {
             static uint32_t s_u32Ms = 0UL;
             static uint32_t s_u32PcCmdCnt = 0UL;
@@ -228,11 +220,11 @@ int32_t main(void)
                 communication_handle();
             }
 
-            /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±/ï¿½ï¿½ï¿½ï¿½×° (ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ EXTI ï¿½Ð¶ï¿½ï¿½Ã¼ï¿½ï¿½ï¿½Ö¾) */
+/* °´¼üÏû¶¶Óë´¦Àí (Ïû¶¶½áÊøºóÖØÐÂÊ¹ÄÜ¶ÔÓ¦ EXTI ÖÐ¶Ï) */
             Board_Key1msTask();
 
             if ((s_u32Ms % LED_TOGGLE_MS) == 0UL) {
-                GPIO_TogglePins(USER_LED_PORT, USER_LED_PIN);   /* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
+                GPIO_TogglePins(USER_LED_PORT, USER_LED_PIN);   /* ÐÄÌø·­×ª */
             }
             g_u8Tick1ms = 0U;
         }

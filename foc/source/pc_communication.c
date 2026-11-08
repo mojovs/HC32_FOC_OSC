@@ -208,7 +208,7 @@ void communication_init(void)
 
 /**
  * @brief  Sample one tick and, when 40 points are collected, finish the frame.
- *         Called from the 20 kHz PWM ISR.
+ *         Called from the 20 kHz ADC/DMA completion ISR.
  */
 void communication_task(void)
 {

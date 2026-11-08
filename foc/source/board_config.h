@@ -83,8 +83,8 @@
 #define PWM_GPIO_FUNC               (GPIO_FUNC_4)
 
 /*******************************************************************************
- * ADC (源: ADC1 + DMA2_Stream0, 注入组由 TIM1_CC4 触发)
- * HC32F460: ADC1 序列 A, 由 PWM 中断软件启动。
+ * ADC (源: ADC1 + DMA, 注入组 TIM1_CC4 触发)
+ * HC32F460: ADC1 序列 A, TMRA_1 OVF 事件经 AOS 硬件触发, 结果 DMA 搬运
  ******************************************************************************/
 /* 低侧采样电阻 20mR (R40/R48), DRV8301 增益 10V/V:
    1 个 ADC 码 = 3.3V / 4095 / (0.020 * 10) = 4.028mA。 */
@@ -124,6 +124,25 @@
 #define ADC_ITOTAL_CH               (ADC_CH2)
 
 #define ADC_SAMPLE_TIME             (0x20U)
+
+/* ADC 结果 DMA (B2): ADC1_EOCA 事件经 AOS 触发 DMA1 CH0, 从 DR2 起连续搬
+   ADC_DMA_BLOCK_SIZE 个 16-bit 结果。落点: [0]=CH2 ITOTAL, [8]=CH10 VBUS,
+   [9]=CH11 IA, [10]=CH12 IB, [11]=CH13 NTC (DR 与通道号一一对应)。 */
+#define ADC_DMA_UNIT                (CM_DMA1)
+#define ADC_DMA_CH                  (DMA_CH0)
+#define ADC_DMA_AOS_TRIG_SEL        (AOS_DMA1_0)
+#define ADC_DMA_TRIG_EVT            (EVT_SRC_ADC1_EOCA)
+#define ADC_DMA_SRC_ADDR            ((uint32_t)&CM_ADC1->DR2)
+#define ADC_DMA_BLOCK_SIZE          (12U)                   /* DR2..DR13 */
+#define ADC_DMA_DATA_WIDTH          (DMA_DATAWIDTH_16BIT)
+#define ADC_DMA_INT_SRC             (INT_SRC_DMA1_BTC0)
+#define ADC_DMA_INT_IRQn            (INT038_IRQn)
+#define ADC_DMA_INT_FLAG            (DMA_FLAG_BTC_CH0)
+#define ADC_DMA_INT_PRIO            (DDL_IRQ_PRIO_02)
+
+/* ADC 硬件触发 (B2): TMRA_1 OVF 事件经 AOS 触发 ADC1 序列 A (替代软件 Start) */
+#define ADC_HWTRIG_AOS_SEL          (AOS_ADC1_0)
+#define ADC_HWTRIG_EVT              (EVT_SRC_TMRA_1_OVF)
 
 /*******************************************************************************
  * DRV8301 (引脚名与 STM32 板一致)
@@ -207,8 +226,8 @@
 #define HALL_CAPT_CLK_DIV           (TMRA_CLK_DIV16)
 #define HALL_CAPT_TICK_FREQ         (PCLK1_FREQ / 16UL)     /* 6250000 Hz */
 
-/* 中断向量号: INT080 (TMRA_1 OVF) / INT081/082 (TMRA_2) / INT083-085 (按键)
-   / INT000/001 (USART3) / INT030 (USB, 见 usb_bsp.c)。 */
+/* 中断分配表: INT080 (TMRA_1 OVF) / INT081/082 (TMRA_2) / INT083-085 (按键)
+   / INT000/001 (USART3) / INT030 (USB, 见 usb_bsp.c) / INT038 (DMA1 BTC0)。 */
 #define HALL_CAPT_OVF_IRQn          (INT081_IRQn)
 #define HALL_CAPT_OVF_INT_SRC       (INT_SRC_TMRA_2_OVF)
 #define HALL_CAPT_CMP_IRQn          (INT082_IRQn)
@@ -269,9 +288,11 @@
  * 中断共享数据 (ISR 里写, 主循环里读; 对应源工程由 SysTick / JEOC /
  * TIM2 / EXTI 中断驱动的变量)。
  ******************************************************************************/
-/* TMRA_1 OVF (20kHz) 产生: */
-extern volatile uint8_t g_u8AdcBusy;    /* 1: 序列 A 转换进行中 */
-extern volatile uint8_t g_u8Tick1ms;    /* 1ms 时基标志, 主循环清零 */
+/* ADC DMA 结果 (B2): 由 ADC1 序列 A 的 DMA 块完成中断更新 */
+extern volatile uint16_t g_au16AdcValue[ADC_DMA_BLOCK_SIZE];
+
+/* TMRA_1 OVF (20kHz): 只派生 1ms 时间标志 */
+extern volatile uint8_t g_u8Tick1ms;    /* 1ms 时间标志, 主循环清零 */
 
 /* TMRA_2 霍尔捕获产生 (对应源工程 TIM2_IRQHandler 维护的量):
    g_u32HallEdgeInterval = 0 表示还没有有效间隔 (未捕获到两个沿)。 */

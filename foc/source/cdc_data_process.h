@@ -7,14 +7,14 @@
  * (CN1) and the CDC -> UART direction is buffered instead of blocking inside
  * the USB interrupt.
  *
- * foc ï¿½Ï²ï¿½Ëµï¿½ï¿½: ï¿½ï¿½ usb_dev_cdc ï¿½ï¿½ï¿½Å½Ó¹ï¿½ï¿½ï¿½Ö®ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ usart_uart_int ï¿½ï¿½
- * ï¿½ï¿½ï¿½Ø½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½ (UART_ReadByte, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½), ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ã¡ï¿½
+ * foc ±¾¹¤³Ì: ÑØÓÃ usb_dev_cdc µÄ USB CDC Óë USART3 ÇÅ½Ó, ½ÓÊÕ·½Ïò¸ÄÓÃ usart_uart_int µÄ
+ * ÖÐ¶Ï + »·ÐÎ»º³å (UART_ReadByte, ·Ç×èÈû¶ÁÈ¡), Ö÷Ñ­»·²»ÔÙµÈ´ý´®¿Ú¡£
  @verbatim
    Change Logs:
    Date             Author          Notes
    2022-03-31       CDT             First version
    2026-10-20       SMotorDrive     PB6/PB7, 115200 8N1, non-blocking TX
-   2026-10-26       SMotorDrive     ï¿½Ï²ï¿½ï¿½ï¿½ foc ï¿½ï¿½ï¿½ï¿½: + ï¿½ï¿½ï¿½ï¿½ RX ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+ *   2026-10-26       SMotorDrive     ²¢Èë foc Ö÷¹¤³Ì: + ·Ç×èÈû RX »·ÐÎ»º³å
  @endverbatim
  *******************************************************************************
  * Copyright (C) 2022-2025, Xiaohua Semiconductor Co., Ltd. All rights reserved.
@@ -100,13 +100,13 @@ extern void vcp_send(uint8_t *Buf, uint32_t Len);
 extern void vcp_task(void);
 
 /*
- * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½ usart_uart_int): USART3 RX ï¿½Ð¶Ï°ï¿½Ã¿ï¿½ï¿½ï¿½Ö½ï¿½Í¬Ê±ï¿½Í½ï¿½
- * g_stcUartRing ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø½ï¿½ï¿½ï¿½ï¿½ï¿½
- * ï¿½ï¿½ï¿½ï¿½ 1 ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ 1 ï¿½Ö½ï¿½, 0 ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ý¡ï¿½
+ * ±¾¹¤³Ì×ÔÓÃµÄ USART3 RX »·ÐÎ»º³å (È¡×Ô usart_uart_int): USART3 RX ÖÐ¶Ï°ÑÊÕµ½µÄ
+ * ×Ö½ÚÐ´Èë g_stcUartRing, Ö÷Ñ­»·ÓÃ UART_ReadByte() È¡×ß; Óë·¢Íù PC µÄÍ¨µÀÏà»¥¶ÀÁ¢¡£
+ * ·µ»Ø 1 ±íÊ¾¶Áµ½ 1 ¸ö×Ö½Ú, 0 ±íÊ¾»º³åÎª¿Õ¡£
  */
 extern uint32_t UART_ReadByte(uint8_t *pu8Data);
 
-/* ï¿½ï¿½ï¿½Ø½ï¿½ï¿½Õ»ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ (RX ï¿½Ð¶ï¿½Ð´, ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½)ï¿½ï¿½ */
+/* USART3 ½ÓÊÕ»·ÐÎ»º³å (ÖÐ¶ÏÐ´Èë, Ö÷Ñ­»·¶ÁÈ¡)¡£ */
 extern stc_ring_buf_t g_stcUartRing;
 
 /**

@@ -78,8 +78,15 @@ extern "C"
 #define MAX_CDC_PACKET_SIZE     (64U)      /* IN & OUT Endpoint Packet size */
 #define CDC_CMD_PACKET_SIZE     (8U)       /* Control Endpoint Packet size */
 
-#define CDC_IN_FRAME_INTERVAL   (5U)       /* Number of frames between IN transfers */
-#define APP_RX_DATA_SIZE        (2048U)    /* Total size of IN buffer*/
+/* The PC host link streams a 1715-byte wave frame every 4 ms (40 samples at a
+ * 10 kHz per-channel rate = 250 frames/s ~= 429 KB/s). The vendor defaults
+ * (interval 5 -> one start attempt every 6 SOF frames = ~166 frames/s, and a
+ * 2048-byte IN buffer that holds barely one frame) cannot keep up: frames are
+ * dropped and the host, which stitches frames blindly, draws a broken
+ * waveform. Start an IN transfer on every SOF and buffer two frames so the
+ * bulk drain never falls behind the frame producer. */
+#define CDC_IN_FRAME_INTERVAL   (1U)       /* Number of frames between IN transfers */
+#define APP_RX_DATA_SIZE        (4096U)    /* Total size of IN buffer*/
 
 #ifdef __cplusplus
 }
