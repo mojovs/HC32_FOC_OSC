@@ -38,6 +38,8 @@ public:
         double replayFps = 250.0;
         QString recordRawPath;       // 启动即记录原始流
         QString recordCsvPath;       // 启动即记录 CSV
+        QString screenshotPath;      // 抓一张界面截图（开发/验证用）
+        int screenshotDelayMs = 1500;
         int autoCloseMs = 0;         // >0 则到点自动退出（自动化验证用）
         int sampleRateHz = 10000;
         double windowSeconds = 0.2;
@@ -65,8 +67,7 @@ private slots:
     void onSerialSeen(const QString &serial);
 
 private:
-    void buildUi();
-    void buildToolbar();
+    void buildUi();                 // 示波器式布局：左波形 / 右调控面板
     void wireSignals();
     void sendCommand(const QByteArray &bytes);
     void switchToReplay(const QString &path, double fps);
@@ -91,6 +92,8 @@ private:
     QComboBox *m_portBox = nullptr;
     QSpinBox *m_rateBox = nullptr;
     QDoubleSpinBox *m_windowBox = nullptr;
+    QLabel *m_connLabel = nullptr;      // 右侧面板内的连接状态
+    QLabel *m_serialLabel = nullptr;    // 右侧面板内的串号
     QLabel *m_statusPort = nullptr;
     QLabel *m_statusFrames = nullptr;
     QLabel *m_statusDrop = nullptr;

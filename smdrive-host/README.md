@@ -35,9 +35,34 @@ packaging\make_installer.bat   :: 出安装包    -> installer\smdrive-host-1.0.
 | `--rec-csv <file>` | 启动即记录 CSV 宽表（每行一帧） |
 | `--sample-rate <hz>` | 采样率（决定时间轴，默认 10000） |
 | `--window <sec>` | 波形显示窗口，默认 0.2 |
+| `--shot <file.png>` | 启动后抓一张界面截图（开发/验证用） |
+| `--shot-delay <ms>` | 截图前等待毫秒数，默认 1500 |
 | `--auto-close <ms>` | N 毫秒后自动退出（自动化验证用） |
 
 无头运行（CI/脚本）：`set QT_QPA_PLATFORM=offscreen`（`dist\platforms\` 已随包带 `qoffscreen.dll`）。
+注意 offscreen 平台没有系统字体，截图里文字会是空白框；要看真实界面请用默认 windows 平台。
+
+## 3. 界面布局（示波器式）
+
+左侧是波形主显示区，右侧是一列调控面板，底部状态栏当读数条用：
+
+```
+┌──────────────────────────────────────┬─────────────────┐
+│                                      │ 连接             │  串口 / 刷新 / 打开关闭
+│          波形窗口（双轴网格 + 图例）    │ 显示             │  采样率 / 窗口 / 暂停 / 复位
+│      滚轮缩放 · 拖动翻历史 · 双击复位   │ 运行控制         │  认证 / 开始上传 / 启动 / 加速 / 减速
+│      虚线游标显示 Δt                  │ 波形通道 ×2 列   │  勾选显示 + Δ 偏移（只改本地绘图）
+│                                      │ 参数 | 数据表     │  参数下发 / 实时数值
+│                                      │ 记录 / 回放       │  CSV+BIN 记录 / 回放 .bin
+└──────────────────────────────────────┴─────────────────┘
+   帧数 · 丢帧 · 帧率/带宽 · 串号 · 记录状态（状态栏读数条）
+```
+
+![界面截图](docs/ui.png)
+
+- 通道勾选框用通道自身颜色显示；`Δ` 是绘图偏移（只影响本地显示，不向驱动器发帧）。
+- 波形区交互：滚轮缩放窗口、左键拖动翻看历史（自动进入暂停态）、双击回到实时跟随。
+- 右栏可拖动分隔条调宽窄，内容超高时自动出现滚动条。
 
 ## 3. 目录结构
 
@@ -51,9 +76,10 @@ smdrive-host/
 │  ├─ data/                  ring_buffer.h / datahub / recorder（CSV + 原始流）
 │  ├─ app/                   channel_table.h（通道与参数唯一维护点）/ app_config
 │  └─ ui/                    main_window / waveform_view（自绘）/ table_panel / param_panel
-├─ tests/test_protocol.cpp   golden 用例 + 健壮性（12 项）
+├─ tests/test_protocol.cpp   golden 用例 + 健壮性 + 数据层符号（13 项）
 ├─ tools/                    frame_injector.py（造流压测）/ params_example.json
-└─ packaging/                app.iss（Inno Setup）/ make_installer.bat
+├─ packaging/                app.iss（Inno Setup）/ make_installer.bat
+└─ docs/                     界面截图（README 引用）
 ```
 
 线程模型（计划书 §4.2）：串口/回放对象 `moveToThread` 到工作线程，解码在工作线程完成，
@@ -97,7 +123,7 @@ GUI 线程只接收已解析帧并写入环形缓冲；UI 由 **60 Hz 定时器*
 | 项目 | 结果 |
 |---|---|
 | 编译 | 0 error（MSVC 14.29，C++20，`/W4 /permissive-`） |
-| 单元测试 | **1/1 通过，12 项**：9 条 golden 帧逐字节匹配、0 值 4 字节、逐字节切分、分包+半帧、噪声+坏尾、payload 内伪造 `55 55 04`、认证帧、未知命令、环形缓冲回绕 |
+| 单元测试 | **1/1 通过，13 项**：9 条 golden 帧逐字节匹配、0 值 4 字节、逐字节切分、分包+半帧、噪声+坏尾、payload 内伪造 `55 55 04`、认证帧、未知命令、环形缓冲回绕 |
 | 回放 1000 帧（干净流） | `dataFrames=1000 authFrames=1 droppedFrames=0`，CSV 1001 行（表头+1000），raw 回写与输入**哈希一致** |
 | 回放 1000 帧（5 帧破损 + 每帧 3 字节噪声） | `dataFrames=995 droppedFrames=5`，raw = 1706442 字节 = 995×1715+17（与预期完全一致） |
 | 部署自足性 | `dist\` 脱离 Qt 目录、仅系统 PATH 下启动成功并完成 1000 帧回放 |

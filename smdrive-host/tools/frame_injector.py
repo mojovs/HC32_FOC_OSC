@@ -47,7 +47,9 @@ def data_frame(n: int, rate_hz: float = 10000.0, seed: int = 0) -> bytes:
     for c in range(WAVE_INT_N):
         body += bytes([INT_WAVE_TYPE])                      # 类型 0x06 = int32
         for s in range(WAVE_SAMPLES):
-            v = (base + s) * (c + 1) + seed
+            # 有界“ADC 计数”样式波形（±2000 计数），避免把上位机自动量程撑爆
+            t = (base + s) / rate_hz
+            v = int(2000.0 * math.sin(2 * math.pi * 17.0 * (c + 1) * t)) + c * 100 + seed
             body += struct.pack(">I", v & 0xFFFFFFFF)
 
     for i in range(DATA_FLOAT_N):

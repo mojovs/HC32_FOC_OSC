@@ -20,10 +20,13 @@
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFrame>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSerialPortInfo>
@@ -32,7 +35,7 @@
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTimer>
-#include <QToolBar>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace smd {
@@ -45,7 +48,6 @@ MainWindow::MainWindow(const Options &opt, QWidget *parent)
     m_recorder = new Recorder(this);
 
     buildUi();
-    buildToolbar();
 
     // ---- 工作线程与两个传输实现（真机 / 回放）----
     m_worker = new QThread(this);
@@ -78,6 +80,17 @@ MainWindow::MainWindow(const Options &opt, QWidget *parent)
 
     if (m_opt.autoCloseMs > 0)
         QTimer::singleShot(m_opt.autoCloseMs, qApp, &QCoreApplication::quit);
+
+    // 抓界面截图（开发/验证用）：--shot <png> [--shot-delay ms]
+    if (!m_opt.screenshotPath.isEmpty()) {
+        QTimer::singleShot(qMax(100, m_opt.screenshotDelayMs), this, [this] {
+            const QPixmap shot = grab();
+            if (shot.save(m_opt.screenshotPath))
+                qInfo("screenshot saved: %s", qPrintable(m_opt.screenshotPath));
+            else
+                qWarning("screenshot failed: %s", qPrintable(m_opt.screenshotPath));
+        });
+    }
 }
 
 MainWindow::~MainWindow()
@@ -102,14 +115,167 @@ MainWindow::~MainWindow()
     }
 }
 
+namespace {
+
+// 把 QAction 绑到按钮上：文字/勾选状态随 QAction 自动同步，避免两份状态
+QToolButton *makeActionButton(QAction *action, QWidget *parent)
+{
+    auto *button = new QToolButton(parent);
+    button->setDefaultAction(action);
+    button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    button->setMinimumHeight(30);
+    return button;
+}
+
+QGroupBox *makeGroup(const QString &title, QWidget *parent, QVBoxLayout **outLayout)
+{
+    auto *box = new QGroupBox(title, parent);
+    auto *layout = new QVBoxLayout(box);
+    layout->setSpacing(6);
+    if (outLayout)
+        *outLayout = layout;
+    return box;
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+// 示波器式布局：左侧波形主显示区，右侧竖排调控面板（连接 / 显示 / 运行 / 通道 /
+// 参数与数据表 / 记录回放），底部状态栏为读数条。
+// ---------------------------------------------------------------------------
 void MainWindow::buildUi()
 {
     setWindowTitle(QStringLiteral("SMotorDrive 上位机（Qt 版）"));
-    resize(1280, 840);
+    resize(1420, 880);
 
+    // ---------------- 左：波形窗口 ----------------
     m_wave = new WaveformView(this);
     m_wave->setDataHub(m_hub);
 
+    // ---------------- 右：调控面板 ----------------
+    auto *panel = new QWidget(this);
+    auto *panelLayout = new QVBoxLayout(panel);
+    panelLayout->setContentsMargins(8, 8, 8, 8);
+    panelLayout->setSpacing(10);
+
+    // ---- 连接 ----
+    QVBoxLayout *connLayout = nullptr;
+    auto *connBox = makeGroup(QStringLiteral("连接"), panel, &connLayout);
+    auto *portRow = new QHBoxLayout();
+    portRow->addWidget(new QLabel(QStringLiteral("串口"), connBox));
+    m_portBox = new QComboBox(connBox);
+    m_portBox->setMinimumWidth(160);
+    portRow->addWidget(m_portBox, 1);
+    auto *refreshBtn = new QPushButton(QStringLiteral("刷新"), connBox);
+    connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::onRefreshPorts);
+    portRow->addWidget(refreshBtn);
+    connLayout->addLayout(portRow);
+
+    m_openAct = new QAction(QStringLiteral("打开串口"), this);
+    connect(m_openAct, &QAction::triggered, this, &MainWindow::onTogglePort);
+    connLayout->addWidget(makeActionButton(m_openAct, connBox));
+
+    m_connLabel = new QLabel(QStringLiteral("未连接"), connBox);
+    m_serialLabel = new QLabel(QStringLiteral("串号: -"), connBox);
+    m_connLabel->setWordWrap(true);
+    m_serialLabel->setWordWrap(true);
+    connLayout->addWidget(m_connLabel);
+    connLayout->addWidget(m_serialLabel);
+    panelLayout->addWidget(connBox);
+
+    // ---- 显示 ----
+    QVBoxLayout *dispLayout = nullptr;
+    auto *dispBox = makeGroup(QStringLiteral("显示"), panel, &dispLayout);
+    auto *rateRow = new QHBoxLayout();
+    rateRow->addWidget(new QLabel(QStringLiteral("采样率 (Hz)"), dispBox));
+    m_rateBox = new QSpinBox(dispBox);
+    m_rateBox->setRange(100, 1000000);
+    m_rateBox->setSingleStep(1000);
+    m_rateBox->setValue(AppConfig::sampleRateHz());
+    rateRow->addWidget(m_rateBox, 1);
+    dispLayout->addLayout(rateRow);
+
+    auto *winRow = new QHBoxLayout();
+    winRow->addWidget(new QLabel(QStringLiteral("窗口 (s)"), dispBox));
+    m_windowBox = new QDoubleSpinBox(dispBox);
+    m_windowBox->setRange(0.005, 60.0);
+    m_windowBox->setDecimals(3);
+    m_windowBox->setSingleStep(0.05);
+    m_windowBox->setValue(AppConfig::windowSeconds());
+    winRow->addWidget(m_windowBox, 1);
+    dispLayout->addLayout(winRow);
+
+    m_pauseAct = new QAction(QStringLiteral("暂停显示"), this);
+    m_pauseAct->setCheckable(true);
+    connect(m_pauseAct, &QAction::toggled, this, [this](bool on) { m_wave->setPaused(on); });
+    auto *resetViewBtn = new QPushButton(QStringLiteral("复位视图/偏移"), dispBox);
+    connect(resetViewBtn, &QPushButton::clicked, this, [this] { m_wave->resetView(); });
+    auto *dispBtnRow = new QHBoxLayout();
+    dispBtnRow->addWidget(makeActionButton(m_pauseAct, dispBox));
+    dispBtnRow->addWidget(resetViewBtn);
+    dispLayout->addLayout(dispBtnRow);
+    panelLayout->addWidget(dispBox);
+
+    // ---- 运行控制 ----
+    QVBoxLayout *runLayout = nullptr;
+    auto *runBox = makeGroup(QStringLiteral("运行控制"), panel, &runLayout);
+    m_authAct = new QAction(QStringLiteral("认证"), this);
+    connect(m_authAct, &QAction::triggered, this, &MainWindow::onAuthClicked);
+    m_uploadAct = new QAction(QStringLiteral("开始上传"), this);
+    connect(m_uploadAct, &QAction::triggered, this, &MainWindow::onStartUploadClicked);
+    m_startAct = new QAction(QStringLiteral("启动"), this);
+    connect(m_startAct, &QAction::triggered, this, &MainWindow::onStartStopClicked);
+    m_accelAct = new QAction(QStringLiteral("加速"), this);
+    m_decelAct = new QAction(QStringLiteral("减速"), this);
+    connect(m_accelAct, &QAction::triggered, this, &MainWindow::onAccelClicked);
+    connect(m_decelAct, &QAction::triggered, this, &MainWindow::onDecelClicked);
+
+    auto *runGrid = new QGridLayout();
+    runGrid->addWidget(makeActionButton(m_authAct, runBox), 0, 0);
+    runGrid->addWidget(makeActionButton(m_uploadAct, runBox), 0, 1);
+    runGrid->addWidget(makeActionButton(m_startAct, runBox), 1, 0);
+    runGrid->addWidget(makeActionButton(m_accelAct, runBox), 1, 1);
+    runGrid->addWidget(makeActionButton(m_decelAct, runBox), 2, 0);
+    runLayout->addLayout(runGrid);
+    panelLayout->addWidget(runBox);
+
+    // ---- 波形通道（勾选显示 + 绘图偏移，仿示波器通道旋钮；只改本地显示，不发帧）----
+    QVBoxLayout *chanOuter = nullptr;
+    auto *chanBox = makeGroup(QStringLiteral("波形通道（偏移只改本地绘图）"), panel, &chanOuter);
+    auto *chanGrid = new QGridLayout();
+    chanGrid->setHorizontalSpacing(6);
+    const auto &meta = channelTable();
+    const int rowsPerCol = (int(meta.size()) + 1) / 2;          // 10 路排成两列，省竖直空间
+    for (int c = 0; c < int(meta.size()); ++c) {
+        auto *cb = new QCheckBox(meta[size_t(c)].name, chanBox);
+        cb->setChecked(meta[size_t(c)].visible);
+        cb->setToolTip(meta[size_t(c)].desc);
+        cb->setStyleSheet(QStringLiteral("QCheckBox{color:%1;}").arg(meta[size_t(c)].color.name()));
+        m_wave->setChannelVisible(c, meta[size_t(c)].visible);
+
+        auto *offset = new QDoubleSpinBox(chanBox);
+        offset->setRange(-1e9, 1e9);
+        offset->setDecimals(3);
+        offset->setSingleStep(1.0);
+        offset->setPrefix(QStringLiteral("Δ"));          // 窄前缀，避免把右栏挤爆
+        offset->setToolTip(QStringLiteral("绘图偏移（只改本地显示，不发帧）"));
+        offset->setMinimumWidth(84);
+        offset->setMaximumWidth(104);
+
+        connect(cb, &QCheckBox::toggled, this, [this, c](bool on) { m_wave->setChannelVisible(c, on); });
+        connect(offset, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+                [this, c](double v) { m_wave->setOffset(c, v); });
+
+        const int row = c % rowsPerCol;
+        const int col = (c / rowsPerCol) * 2;
+        chanGrid->addWidget(cb, row, col);
+        chanGrid->addWidget(offset, row, col + 1);
+    }
+    chanOuter->addLayout(chanGrid);
+    panelLayout->addWidget(chanBox);
+
+    // ---- 参数 / 数据表 ----
     m_table = new TablePanel(this);
     m_params = new ParamPanel(this);
     connect(m_params, &ParamPanel::requestParam, this, [this](int idx, float v) {
@@ -120,125 +286,56 @@ void MainWindow::buildUi()
             sendCommand(FrameBuilder::param(i, float(values[i])));
     });
 
-    // 通道页：显示勾选 + 偏移（只影响绘图，不发帧）
-    auto *chanBox = new QGroupBox(QStringLiteral("波形通道 / 绘图偏移（上下移只改本地显示）"), this);
-    auto *chanLayout = new QVBoxLayout(chanBox);
-    const auto &meta = channelTable();
-    for (int c = 0; c < int(meta.size()); ++c) {
-        auto *row = new QWidget(chanBox);
-        auto *hl = new QHBoxLayout(row);
-        auto *cb = new QCheckBox(QStringLiteral("波形%1  %2  —  %3")
-                                     .arg(c + 1).arg(meta[size_t(c)].name, meta[size_t(c)].desc), row);
-        cb->setChecked(meta[size_t(c)].visible);
-        m_wave->setChannelVisible(c, meta[size_t(c)].visible);
-        hl->addWidget(cb);
-
-        auto *offset = new QDoubleSpinBox(row);
-        offset->setRange(-1e9, 1e9);
-        offset->setDecimals(3);
-        offset->setSingleStep(1.0);
-        offset->setPrefix(QStringLiteral("偏移 "));
-        hl->addWidget(offset);
-        hl->addStretch(1);
-
-        connect(cb, &QCheckBox::toggled, this, [this, c](bool on) { m_wave->setChannelVisible(c, on); });
-        connect(offset, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-                [this, c](double v) { m_wave->setOffset(c, v); });
-        chanLayout->addWidget(row);
-    }
-    auto *resetBtn = new QPushButton(QStringLiteral("复位所有偏移 / 回到实时"), chanBox);
-    connect(resetBtn, &QPushButton::clicked, this, [this] { m_wave->resetView(); });
-    chanLayout->addWidget(resetBtn);
-    chanLayout->addStretch(1);
-
-    auto *chanScroll = new QScrollArea(this);
-    chanScroll->setWidget(chanBox);
-    chanScroll->setWidgetResizable(true);
-
-    m_tabs = new QTabWidget(this);
-    m_tabs->addTab(m_table, QStringLiteral("数据表"));
+    m_tabs = new QTabWidget(panel);
     m_tabs->addTab(m_params, QStringLiteral("参数"));
-    m_tabs->addTab(chanScroll, QStringLiteral("通道/显示"));
+    m_tabs->addTab(m_table, QStringLiteral("数据表"));
+    panelLayout->addWidget(m_tabs, 1);
 
-    auto *splitter = new QSplitter(Qt::Vertical, this);
+    // ---- 记录 / 回放 ----
+    QVBoxLayout *recLayout = nullptr;
+    auto *recBox = makeGroup(QStringLiteral("记录 / 回放"), panel, &recLayout);
+    m_recordAct = new QAction(QStringLiteral("开始记录"), this);
+    m_recordAct->setCheckable(true);
+    connect(m_recordAct, &QAction::toggled, this, &MainWindow::onRecordToggled);
+    m_replayAct = new QAction(QStringLiteral("回放…"), this);
+    connect(m_replayAct, &QAction::triggered, this, &MainWindow::onReplayClicked);
+    auto *recRow = new QHBoxLayout();
+    recRow->addWidget(makeActionButton(m_recordAct, recBox));
+    recRow->addWidget(makeActionButton(m_replayAct, recBox));
+    recLayout->addLayout(recRow);
+    panelLayout->addWidget(recBox);
+
+    auto *panelScroll = new QScrollArea(this);
+    panelScroll->setWidget(panel);
+    panelScroll->setWidgetResizable(true);
+    panelScroll->setFrameShape(QFrame::NoFrame);
+    panelScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    panelScroll->setMinimumWidth(470);
+    panelScroll->setMaximumWidth(820);
+
+    auto *splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(m_wave);
-    splitter->addWidget(m_tabs);
-    splitter->setStretchFactor(0, 3);
-    splitter->setStretchFactor(1, 2);
+    splitter->addWidget(panelScroll);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 0);
+    splitter->setSizes({900, 520});
+    splitter->setChildrenCollapsible(false);
     setCentralWidget(splitter);
 
+    // ---------------- 底部读数条 ----------------
     m_statusPort = new QLabel(QStringLiteral("未连接"), this);
     m_statusFrames = new QLabel(QStringLiteral("帧: 0"), this);
     m_statusDrop = new QLabel(QStringLiteral("丢帧: 0"), this);
     m_statusRate = new QLabel(QStringLiteral("0.0 帧/s"), this);
     m_statusSerial = new QLabel(QStringLiteral("串号: -"), this);
     m_statusRecord = new QLabel(QStringLiteral("未记录"), this);
-    statusBar()->addWidget(m_statusPort);
+    // 全部放右侧（permanent）：左侧留给 showMessage 的临时提示，避免文字互相压盖
+    statusBar()->addPermanentWidget(m_statusPort);
     statusBar()->addPermanentWidget(m_statusFrames);
     statusBar()->addPermanentWidget(m_statusDrop);
     statusBar()->addPermanentWidget(m_statusRate);
     statusBar()->addPermanentWidget(m_statusSerial);
     statusBar()->addPermanentWidget(m_statusRecord);
-}
-
-void MainWindow::buildToolbar()
-{
-    auto *tb = addToolBar(QStringLiteral("主工具栏"));
-    tb->setMovable(false);
-
-    m_portBox = new QComboBox(this);
-    m_portBox->setMinimumWidth(220);
-    tb->addWidget(new QLabel(QStringLiteral(" 串口 "), this));
-    tb->addWidget(m_portBox);
-
-    QAction *refresh = tb->addAction(QStringLiteral("刷新"));
-    connect(refresh, &QAction::triggered, this, &MainWindow::onRefreshPorts);
-
-    m_openAct = tb->addAction(QStringLiteral("打开串口"));
-    connect(m_openAct, &QAction::triggered, this, &MainWindow::onTogglePort);
-
-    tb->addSeparator();
-    m_authAct = tb->addAction(QStringLiteral("认证"));
-    connect(m_authAct, &QAction::triggered, this, &MainWindow::onAuthClicked);
-
-    m_uploadAct = tb->addAction(QStringLiteral("开始上传"));
-    connect(m_uploadAct, &QAction::triggered, this, &MainWindow::onStartUploadClicked);
-
-    m_startAct = tb->addAction(QStringLiteral("启动"));
-    connect(m_startAct, &QAction::triggered, this, &MainWindow::onStartStopClicked);
-
-    m_accelAct = tb->addAction(QStringLiteral("加速"));
-    m_decelAct = tb->addAction(QStringLiteral("减速"));
-    connect(m_accelAct, &QAction::triggered, this, &MainWindow::onAccelClicked);
-    connect(m_decelAct, &QAction::triggered, this, &MainWindow::onDecelClicked);
-
-    tb->addSeparator();
-    tb->addWidget(new QLabel(QStringLiteral(" 采样率(Hz) "), this));
-    m_rateBox = new QSpinBox(this);
-    m_rateBox->setRange(100, 1000000);
-    m_rateBox->setSingleStep(1000);
-    m_rateBox->setValue(AppConfig::sampleRateHz());
-    tb->addWidget(m_rateBox);
-
-    tb->addWidget(new QLabel(QStringLiteral(" 显示窗口(s) "), this));
-    m_windowBox = new QDoubleSpinBox(this);
-    m_windowBox->setRange(0.005, 60.0);
-    m_windowBox->setDecimals(3);
-    m_windowBox->setSingleStep(0.05);
-    m_windowBox->setValue(AppConfig::windowSeconds());
-    tb->addWidget(m_windowBox);
-
-    tb->addSeparator();
-    m_recordAct = tb->addAction(QStringLiteral("开始记录"));
-    m_recordAct->setCheckable(true);
-    connect(m_recordAct, &QAction::toggled, this, &MainWindow::onRecordToggled);
-
-    m_replayAct = tb->addAction(QStringLiteral("回放…"));
-    connect(m_replayAct, &QAction::triggered, this, &MainWindow::onReplayClicked);
-
-    m_pauseAct = tb->addAction(QStringLiteral("暂停显示"));
-    m_pauseAct->setCheckable(true);
-    connect(m_pauseAct, &QAction::toggled, this, [this](bool on) { m_wave->setPaused(on); });
 }
 
 void MainWindow::wireSignals()
@@ -455,7 +552,10 @@ void MainWindow::onFrameFromTransport(const smd::DecodedFrame &frame)
 void MainWindow::onTransportOpened()
 {
     m_openAct->setText(QStringLiteral("关闭串口"));
-    m_statusPort->setText(QStringLiteral("已连接: %1").arg(m_active ? m_active->describe() : QString()));
+    const QString desc = m_active ? m_active->describe() : QString();
+    m_statusPort->setText(QStringLiteral("已连接: %1").arg(desc));
+    if (m_connLabel)
+        m_connLabel->setText(QStringLiteral("已连接: %1").arg(desc));
     if (m_pendingAuth) {
         // 打开/重连成功后自动补发认证帧，恢复上位机侧会话
         QTimer::singleShot(200, this, [this] { sendCommand(FrameBuilder::auth()); });
@@ -466,6 +566,8 @@ void MainWindow::onTransportClosed()
 {
     m_openAct->setText(QStringLiteral("打开串口"));
     m_statusPort->setText(QStringLiteral("已断开"));
+    if (m_connLabel)
+        m_connLabel->setText(QStringLiteral("已断开"));
 }
 
 void MainWindow::onTransportError(const QString &msg)
@@ -484,6 +586,8 @@ void MainWindow::onSerialSeen(const QString &serial)
 {
     m_serialHex = serial;
     m_statusSerial->setText(QStringLiteral("串号: %1").arg(serial));
+    if (m_serialLabel)
+        m_serialLabel->setText(QStringLiteral("串号: %1").arg(serial));
     statusBar()->showMessage(QStringLiteral("认证应答收到，驱动器序列号 %1（本版本不做联网授权校验）")
                                  .arg(serial), 6000);
 }

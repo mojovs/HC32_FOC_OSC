@@ -1,4 +1,5 @@
 // 协议层单元测试：golden 用例 + 健壮性（计划书 §9.1 / §9.2）
+#include "data/datahub.h"
 #include "data/ring_buffer.h"
 #include "protocol/frame.h"
 #include "protocol/frame_builder.h"
@@ -236,6 +237,58 @@ private slots:
         QVERIFY(rb.contains(12));
         QVERIFY(!rb.contains(11));
         QCOMPARE(rb.absoluteIndex(0), quint64(12));
+    }
+
+    // 整型波形按 s32 解释：线上是 u32 位模式，负样本必须显示为负值，
+    // 否则会变成 4.29e9 级别巨值把自动量程撑爆（曾经的真实缺陷）
+    void dataHubInterpretsIntWavesAsSigned()
+    {
+        FrameDecoder dec;
+        QByteArray f;
+        const auto u32be = [](quint32 v) {
+            QByteArray b;
+            b.append(char((v >> 24) & 0xFF));
+            b.append(char((v >> 16) & 0xFF));
+            b.append(char((v >> 8) & 0xFF));
+            b.append(char(v & 0xFF));
+            return b;
+        };
+        f.append(char(kHeader));
+        f.append(char(kHeader));
+        f.append(char(RSP_DATA));
+        for (int c = 0; c < kWaveFloatCount; ++c) {          // 浮点波形置 0
+            f.append(char(c));
+            for (int s = 0; s < kWaveSamples; ++s)
+                f.append(u32be(0u));
+        }
+        for (int c = 0; c < kWaveIntCount; ++c) {            // 整型波形第 0 点 = -2000
+            f.append(char(kIntWaveType));
+            f.append(u32be(quint32(qint32(-2000 + c))));
+            for (int s = 1; s < kWaveSamples; ++s)
+                f.append(u32be(0u));
+        }
+        for (int i = 0; i < kDataFloatCount; ++i) {
+            f.append(char(i));
+            f.append(u32be(0u));
+        }
+        for (int i = 0; i < kDataIntCount; ++i) {
+            f.append(char(i));
+            f.append(u32be(i == 0 ? quint32(qint32(-1)) : 0u));
+        }
+        f.append(char(kFooter));
+        f.append(char(kFooter));
+        QCOMPARE(f.size(), kDataFrameLen);
+
+        dec.push(f);
+        const auto frames = dec.takeFrames();
+        QCOMPARE(int(frames.size()), 1);
+
+        DataHub hub;
+        hub.append(frames[0]);
+        QCOMPARE(hub.channel(kWaveFloatCount).at(0), -2000.0f);      // 通道 6 = 整型波形 0
+        QCOMPARE(hub.channel(kWaveFloatCount + 3).at(0), -1997.0f);
+        QCOMPARE(qint32(hub.intData(0)), qint32(-1));               // 整型标量同样按有符号
+        QCOMPARE(hub.channel(0).at(0), 0.0f);
     }
 };
 

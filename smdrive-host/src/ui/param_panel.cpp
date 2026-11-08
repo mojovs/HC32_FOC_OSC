@@ -21,7 +21,8 @@ ParamPanel::ParamPanel(QWidget *parent)
     : QWidget(parent)
 {
     const auto &table = paramTable();
-    auto *box = new QGroupBox(QStringLiteral("参数下发（06 命令：55 55 06 <idx> <f32BE> AA AA）"), this);
+    auto *box = new QGroupBox(QStringLiteral("参数下发"), this);
+    box->setToolTip(QStringLiteral("06 命令：55 55 06 <idx> <f32BE> AA AA；idx=01..0A 对应固件 float_data_download 0..9"));
     auto *grid = new QGridLayout(box);
     grid->addWidget(new QLabel(QStringLiteral("idx")), 0, 0);
     grid->addWidget(new QLabel(QStringLiteral("参数")), 0, 1);
@@ -32,8 +33,8 @@ ParamPanel::ParamPanel(QWidget *parent)
         const ParamInfo &info = table[size_t(i)];
         const int row = i + 1;
         grid->addWidget(new QLabel(QStringLiteral("%1").arg(i + 1, 2, 10, QLatin1Char('0'))), row, 0);
-        auto *name = new QLabel(QStringLiteral("%1  (%2)").arg(info.name, info.desc));
-        name->setToolTip(QStringLiteral("固件变量 %1").arg(info.name));
+        auto *name = new QLabel(info.name);                 // 中文说明放 tooltip，省横向空间
+        name->setToolTip(QStringLiteral("%1（固件变量 %2）").arg(info.desc, info.name));
         grid->addWidget(name, row, 1);
 
         auto *spin = new QDoubleSpinBox(box);
@@ -41,11 +42,13 @@ ParamPanel::ParamPanel(QWidget *parent)
         spin->setRange(info.minValue, info.maxValue);
         spin->setSingleStep(info.step);
         spin->setValue(info.defaultValue);
-        spin->setMinimumWidth(140);
+        spin->setMinimumWidth(104);
+        spin->setMaximumWidth(150);
         m_spins.append(spin);
         grid->addWidget(spin, row, 2);
 
         auto *btn = new QPushButton(QStringLiteral("发送"), box);
+        btn->setMaximumWidth(64);
         connect(btn, &QPushButton::clicked, this, [this, i, spin] {
             emit requestParam(i, float(spin->value()));
         });

@@ -28,13 +28,19 @@ int main(int argc, char *argv[])
     const QCommandLineOption closeOpt(QStringLiteral("auto-close"),
                                       QStringLiteral("N 毫秒后自动退出（自动化验证用）"), QStringLiteral("ms"),
                                       QStringLiteral("0"));
+    const QCommandLineOption shotOpt(QStringLiteral("shot"),
+                                     QStringLiteral("把界面截图存成 PNG（开发/验证用）"),
+                                     QStringLiteral("file"));
+    const QCommandLineOption shotDelayOpt(QStringLiteral("shot-delay"),
+                                          QStringLiteral("截图前等待毫秒数"), QStringLiteral("ms"),
+                                          QStringLiteral("1500"));
     const QCommandLineOption rateOpt(QStringLiteral("sample-rate"),
                                      QStringLiteral("采样率 Hz（决定时间轴）"), QStringLiteral("hz"),
                                      QStringLiteral("10000"));
     const QCommandLineOption winOpt(QStringLiteral("window"),
                                     QStringLiteral("显示窗口秒数"), QStringLiteral("sec"),
                                     QStringLiteral("0.2"));
-    parser.addOptions({replayOpt, fpsOpt, rawOpt, csvOpt, closeOpt, rateOpt, winOpt});
+    parser.addOptions({replayOpt, fpsOpt, rawOpt, csvOpt, closeOpt, shotOpt, shotDelayOpt, rateOpt, winOpt});
     parser.process(app);
 
     smd::MainWindow::Options opt;
@@ -43,6 +49,8 @@ int main(int argc, char *argv[])
     opt.recordRawPath = parser.value(rawOpt);
     opt.recordCsvPath = parser.value(csvOpt);
     opt.autoCloseMs = parser.value(closeOpt).toInt();
+    opt.screenshotPath = parser.value(shotOpt);
+    opt.screenshotDelayMs = parser.value(shotDelayOpt).toInt();
     opt.sampleRateHz = parser.value(rateOpt).toInt();
     opt.windowSeconds = parser.value(winOpt).toDouble();
 
