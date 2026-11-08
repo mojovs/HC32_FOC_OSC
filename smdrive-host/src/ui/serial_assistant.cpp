@@ -17,6 +17,7 @@
 #include <QShowEvent>
 #include <QTextBlock>
 #include <QTextCursor>
+#include <QTextOption>
 #include <QTime>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -25,10 +26,11 @@ namespace smd {
 
 namespace {
 
-constexpr int kMaxLogBlocks = 5000;      // 日志最多保留的行数（超出丢最旧）
-constexpr int kInlineWrapChars = 4096;   // 非时间戳模式下，单行超过这么多字符就强制换行
+constexpr int kMaxLogBlocks = 2000;      // 日志最多保留的段落数（超出丢最旧）
+constexpr int kInlineWrapChars = 4096;   // 单个段落超过这么多字符就另起一段（配合按宽度折行）
 constexpr int kRxFlushMs = 33;           // 接收日志刷新节流（约 30 Hz）
 constexpr int kMaxRxPending = 256 * 1024; // 未渲染接收字节上限，超出丢最旧
+constexpr int kMaxRenderChars = 64 * 1024; // 单次刷新最多渲染的字符数，超出丢弃（保护 GUI）
 
 void setMonospace(QWidget *w)
 {
@@ -100,8 +102,11 @@ void SerialAssistant::buildTerminal()
     m_log = new QPlainTextEdit(m_terminalPanel);
     m_log->setReadOnly(true);
     m_log->setMaximumBlockCount(kMaxLogBlocks);
-    m_log->setLineWrapMode(QPlainTextEdit::NoWrap);   // XCOM 风格：不折行、横向滚动
-    m_log->setPlaceholderText(QStringLiteral("接收区：按显示格式渲染，二进制建议切到 HEX"));
+    // 按可见宽度折行 + 竖直滚动条；长串（HEX 一行几千字符）任意位置断行。
+    m_log->setLineWrapMode(QPlainTextEdit::WidgetWidth);
+    m_log->setWordWrapMode(QTextOption::WrapAnywhere);
+    m_log->setUndoRedoEnabled(false);   // 日志无需撤销栈，省内存与开销
+    m_log->setPlaceholderText(QStringLiteral("接收区：按可见宽度折行，可上下滚动"));
     setMonospace(m_log);
     layout->addWidget(m_log, 1);
 
@@ -264,15 +269,38 @@ void SerialAssistant::appendDisplay(const QString &text, bool isTx)
     if (isTx)
         prefix += QStringLiteral("→ ");
 
+    // 单次刷新渲染量保护：一次 flush 可能很大（HEX 下 14 KB 字节 ≈ 43 K 字符），
+    // 只保留最新的一段，避免一次 insert + 重排把 GUI 拖死。
+    QString body = text;
+    bool truncated = false;
+    if (body.size() > kMaxRenderChars) {
+        body = body.right(kMaxRenderChars);
+        truncated = true;
+    }
+
+    // 段落切分：QPlainTextEdit 对超长段落（如一整段 HEX）布局很慢；这里按
+    // kInlineWrapChars 主动断成多个段落，再交给控件按可见宽度折行。
+    QString payload = prefix + body;
+    QString toInsert;
+    toInsert.reserve(payload.size() + payload.size() / kInlineWrapChars + 16);
+    for (int i = 0; i < payload.size(); i += kInlineWrapChars) {
+        if (i > 0)
+            toInsert.append(QLatin1Char('\n'));
+        toInsert.append(payload.mid(i, kInlineWrapChars));
+    }
+
     QTextCursor cur = m_log->textCursor();
     cur.movePosition(QTextCursor::End);
 
+    // 当前段落已够长（或需要时间戳/发送前缀独行）时另起一段，避免段落无限增长。
     const bool lastBlockEmpty = cur.block().text().isEmpty();
     const bool needBreak = !lastBlockEmpty
-        && (tsOn || isTx || cur.block().length() > kInlineWrapChars);
+        && (tsOn || isTx || cur.block().length() >= kInlineWrapChars);
     if (needBreak)
         cur.insertText(QStringLiteral("\n"));
-    cur.insertText(prefix + text);
+    if (truncated)
+        cur.insertText(QStringLiteral("…（接收过快，已丢弃较早内容）\n"));
+    cur.insertText(toInsert);
 
     m_log->setTextCursor(cur);
     if (!m_autoScrollBox || m_autoScrollBox->isChecked())
