@@ -40,6 +40,7 @@ public:
         QString recordCsvPath;       // 启动即记录 CSV
         QString screenshotPath;      // 抓一张界面截图（开发/验证用）
         int screenshotDelayMs = 1500;
+        QVector<QPair<int, double>> channelGains;   // 启动时预设的每通道显示增益
         int autoCloseMs = 0;         // >0 则到点自动退出（自动化验证用）
         int sampleRateHz = 10000;
         double windowSeconds = 0.2;
@@ -92,6 +93,7 @@ private:
     QComboBox *m_portBox = nullptr;
     QSpinBox *m_rateBox = nullptr;
     QDoubleSpinBox *m_windowBox = nullptr;
+    QVector<QDoubleSpinBox *> m_gainSpins;   // 每通道显示增益输入框
     QLabel *m_connLabel = nullptr;      // 右侧面板内的连接状态
     QLabel *m_serialLabel = nullptr;    // 右侧面板内的串号
     QLabel *m_statusPort = nullptr;

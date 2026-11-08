@@ -65,6 +65,14 @@ MainWindow::MainWindow(const Options &opt, QWidget *parent)
     m_windowBox->setValue(m_opt.windowSeconds);
     m_wave->setWindowSeconds(m_opt.windowSeconds);
 
+    // 启动参数里预设的通道显示增益（--ch-gain "6=0.002,7=0.001"）
+    for (const auto &preset : m_opt.channelGains) {
+        const int ch = preset.first;
+        if (ch < 0 || ch >= m_gainSpins.size())
+            continue;
+        m_gainSpins[ch]->setValue(preset.second);   // 触发 valueChanged → m_wave->setGain
+    }
+
     m_tick = new QTimer(this);
     m_tick->setInterval(16);              // ≈60 Hz
     connect(m_tick, &QTimer::timeout, this, &MainWindow::onTick);
@@ -254,6 +262,16 @@ void MainWindow::buildUi()
         cb->setStyleSheet(QStringLiteral("QCheckBox{color:%1;}").arg(meta[size_t(c)].color.name()));
         m_wave->setChannelVisible(c, meta[size_t(c)].visible);
 
+        auto *gain = new QDoubleSpinBox(chanBox);
+        gain->setRange(1e-4, 1e5);
+        gain->setDecimals(4);
+        gain->setValue(1.0);
+        gain->setPrefix(QStringLiteral("×"));
+        gain->setToolTip(QStringLiteral("显示增益（示波器 V/div 等价物；只影响绘图，不发帧）"));
+        gain->setMinimumWidth(84);
+        gain->setMaximumWidth(104);
+        m_gainSpins.append(gain);
+
         auto *offset = new QDoubleSpinBox(chanBox);
         offset->setRange(-1e9, 1e9);
         offset->setDecimals(3);
@@ -264,13 +282,16 @@ void MainWindow::buildUi()
         offset->setMaximumWidth(104);
 
         connect(cb, &QCheckBox::toggled, this, [this, c](bool on) { m_wave->setChannelVisible(c, on); });
+        connect(gain, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+                [this, c](double v) { m_wave->setGain(c, v); });
         connect(offset, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
                 [this, c](double v) { m_wave->setOffset(c, v); });
 
         const int row = c % rowsPerCol;
-        const int col = (c / rowsPerCol) * 2;
+        const int col = (c / rowsPerCol) * 3;
         chanGrid->addWidget(cb, row, col);
-        chanGrid->addWidget(offset, row, col + 1);
+        chanGrid->addWidget(gain, row, col + 1);
+        chanGrid->addWidget(offset, row, col + 2);
     }
     chanOuter->addLayout(chanGrid);
     panelLayout->addWidget(chanBox);
@@ -310,15 +331,15 @@ void MainWindow::buildUi()
     panelScroll->setWidgetResizable(true);
     panelScroll->setFrameShape(QFrame::NoFrame);
     panelScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    panelScroll->setMinimumWidth(470);
-    panelScroll->setMaximumWidth(820);
+    panelScroll->setMinimumWidth(560);
+    panelScroll->setMaximumWidth(900);
 
     auto *splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(m_wave);
     splitter->addWidget(panelScroll);
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 0);
-    splitter->setSizes({900, 520});
+    splitter->setSizes({840, 580});
     splitter->setChildrenCollapsible(false);
     setCentralWidget(splitter);
 

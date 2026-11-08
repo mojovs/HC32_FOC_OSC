@@ -66,6 +66,19 @@ double WaveformView::offset(int channel) const
     return (channel >= 0 && channel < m_channelCount) ? m_offsets[channel] : 0.0;
 }
 
+void WaveformView::setGain(int channel, double gain)
+{
+    if (channel < 0 || channel >= m_channelCount)
+        return;
+    m_gains[channel] = (gain == 0.0) ? 1.0 : gain;   // 0 会让通道彻底消失，按 1 处理
+    update();
+}
+
+double WaveformView::gain(int channel) const
+{
+    return (channel >= 0 && channel < m_channelCount) ? m_gains[channel] : 1.0;
+}
+
 void WaveformView::setYRange(double lo, double hi)
 {
     if (hi <= lo)
@@ -82,6 +95,8 @@ void WaveformView::resetView()
     m_paused = false;
     for (double &o : m_offsets)
         o = 0.0;
+    for (double &g : m_gains)
+        g = 1.0;
     update();
 }
 
@@ -139,10 +154,12 @@ void WaveformView::paintEvent(QPaintEvent *)
                 const double s1 = startSample + (endSample - startSample) * (col + 1) / cols;
                 const quint64 i0 = quint64(std::max(0.0, std::floor(s0)));
                 const quint64 i1 = quint64(std::max(0.0, std::ceil(s1)));
+                const quint64 firstAbs = rb.absoluteIndex(0);
                 for (quint64 idx = i0; idx < i1; ++idx) {
                     if (!rb.contains(idx))
                         continue;
-                    const double v = double(rb.at(size_t(idx - rb.absoluteIndex(0))));
+                    // 量程必须用“显示值”（含增益与偏移），否则调增益后曲线会被压平
+                    const double v = double(rb.at(size_t(idx - firstAbs))) * m_gains[c] - m_offsets[c];
                     ymin = std::min(ymin, v);
                     ymax = std::max(ymax, v);
                 }
@@ -248,7 +265,7 @@ void WaveformView::drawCurves(QPainter &p, const QRectF &plot, double startSampl
             for (quint64 idx = i0; idx < i1; ++idx) {
                 if (!rb.contains(idx))
                     continue;
-                const double v = double(rb.at(size_t(idx - firstAbs))) - m_offsets[c];
+                const double v = double(rb.at(size_t(idx - firstAbs))) * m_gains[c] - m_offsets[c];
                 if (!any) {
                     lo = hi = v;
                     any = true;
@@ -290,7 +307,10 @@ void WaveformView::drawLegend(QPainter &p, const QRectF &plot) const
     for (int c = 0; c < m_channelCount; ++c) {
         if (!m_visible[c])
             continue;
-        const QString label = meta[size_t(c)].name;
+        QString label = meta[size_t(c)].name;
+        if (!qFuzzyCompare(m_gains[c], 1.0)) {                 // 增益非 1 时在图例里标出来
+            label += QStringLiteral(" ×%1").arg(m_gains[c], 0, 'g', 4);
+        }
         const double w = p.fontMetrics().horizontalAdvance(label) + 24;
         if (x + w > plot.right() - 8) {
             x = plot.left() + 8;

@@ -25,6 +25,9 @@ public:
     bool channelVisible(int channel) const;
     void setOffset(int channel, double value);
     double offset(int channel) const;
+    /// 每通道显示增益（示波器的 V/div 等价物）：显示值 = 原始值 × gain − offset
+    void setGain(int channel, double gain);
+    double gain(int channel) const;
     void setAutoScale(bool on) { m_autoScale = on; update(); }
     bool autoScale() const { return m_autoScale; }
     void setYRange(double lo, double hi);
@@ -53,6 +56,7 @@ private:
     double m_windowSeconds = 0.2;
     int m_channelCount = 10;
     bool m_visible[10] = {true, true, false, false, true, true, true, false, false, false};
+    double m_gains[10] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     double m_offsets[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     bool m_autoScale = true;
     double m_manualMin = -1.0;

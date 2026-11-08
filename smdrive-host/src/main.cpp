@@ -34,13 +34,17 @@ int main(int argc, char *argv[])
     const QCommandLineOption shotDelayOpt(QStringLiteral("shot-delay"),
                                           QStringLiteral("截图前等待毫秒数"), QStringLiteral("ms"),
                                           QStringLiteral("1500"));
+    const QCommandLineOption gainOpt(QStringLiteral("ch-gain"),
+                                     QStringLiteral("启动时预设通道显示增益，如 \"6=0.002,7=0.001\"（通道号=增益）"),
+                                     QStringLiteral("list"));
     const QCommandLineOption rateOpt(QStringLiteral("sample-rate"),
                                      QStringLiteral("采样率 Hz（决定时间轴）"), QStringLiteral("hz"),
                                      QStringLiteral("10000"));
     const QCommandLineOption winOpt(QStringLiteral("window"),
                                     QStringLiteral("显示窗口秒数"), QStringLiteral("sec"),
                                     QStringLiteral("0.2"));
-    parser.addOptions({replayOpt, fpsOpt, rawOpt, csvOpt, closeOpt, shotOpt, shotDelayOpt, rateOpt, winOpt});
+    parser.addOptions({replayOpt, fpsOpt, rawOpt, csvOpt, closeOpt, shotOpt, shotDelayOpt, gainOpt,
+                       rateOpt, winOpt});
     parser.process(app);
 
     smd::MainWindow::Options opt;
@@ -53,6 +57,17 @@ int main(int argc, char *argv[])
     opt.screenshotDelayMs = parser.value(shotDelayOpt).toInt();
     opt.sampleRateHz = parser.value(rateOpt).toInt();
     opt.windowSeconds = parser.value(winOpt).toDouble();
+
+    for (const QString &item : parser.value(gainOpt).split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+        const QStringList kv = item.split(QLatin1Char('='));
+        if (kv.size() == 2) {
+            bool okIdx = false, okVal = false;
+            const int idx = kv.at(0).trimmed().toInt(&okIdx);
+            const double val = kv.at(1).trimmed().toDouble(&okVal);
+            if (okIdx && okVal && val > 0.0)
+                opt.channelGains.append(qMakePair(idx, val));
+        }
+    }
 
     smd::MainWindow window(opt);
     window.show();
