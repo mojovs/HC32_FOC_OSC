@@ -6,6 +6,8 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QResizeEvent>
+#include <QScrollBar>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -18,7 +20,9 @@ namespace {
 constexpr int kLeftMargin = 64;
 constexpr int kRightMargin = 12;
 constexpr int kTopMargin = 10;
-constexpr int kBottomMargin = 26;
+constexpr int kBottomMargin = 26;       // x 轴刻度区
+constexpr int kScrollHeight = 14;       // 底部时间进度条
+constexpr int kScrollGap = 4;
 const QColor kBg(0x1B, 0x1E, 0x22);
 const QColor kPlotBg(0x11, 0x13, 0x16);
 const QColor kGrid(0x2E, 0x34, 0x3B);
@@ -32,6 +36,27 @@ WaveformView::WaveformView(QWidget *parent)
     setMouseTracking(true);
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setFocusPolicy(Qt::StrongFocus);
+
+    // 底部进度条：在整个环形历史中拖动定位；一拖即自动暂停（停止跟随）
+    m_scroll = new QScrollBar(Qt::Horizontal, this);
+    m_scroll->setRange(0, 0);
+    m_scroll->setTracking(true);
+    connect(m_scroll, &QScrollBar::valueChanged, this, [this](int v) {
+        if (m_syncingScroll || !m_hub)
+            return;
+        const quint64 oldest = m_hub->channel(0).absoluteIndex(0);
+        const double win = m_windowSeconds * double(m_hub->sampleRate());
+        m_viewEnd = double(oldest) + double(v) + win;   // 进度条值 = 视窗左端相对最旧样本
+        setPaused(true);                                 // 定位历史即停止实时跟随
+        update();
+    });
+}
+
+QRectF WaveformView::plotRect() const
+{
+    const double w = width() - kLeftMargin - kRightMargin;
+    const double h = height() - kTopMargin - kBottomMargin - kScrollHeight - kScrollGap;
+    return QRectF(kLeftMargin, kTopMargin, std::max(1.0, w), std::max(1.0, h));
 }
 
 void WaveformView::setWindowSeconds(double s)
@@ -88,15 +113,26 @@ void WaveformView::setYRange(double lo, double hi)
     update();
 }
 
+void WaveformView::setPaused(bool on)
+{
+    if (on == m_paused) {
+        update();
+        return;
+    }
+    m_paused = on;
+    // 恢复跟随时 m_viewEnd 会在下一次重绘锁到最新样本；暂停时它保持当前值。
+    update();
+    emit pausedChanged(m_paused);
+}
+
 void WaveformView::resetView()
 {
-    m_panSamples = 0.0;
     m_autoScale = true;
-    m_paused = false;
     for (double &o : m_offsets)
         o = 0.0;
     for (double &g : m_gains)
         g = 1.0;
+    setPaused(false);       // 回到实时跟随
     update();
 }
 
@@ -112,14 +148,44 @@ void WaveformView::markDataAppended()
     }, Qt::QueuedConnection);
 }
 
+void WaveformView::resizeEvent(QResizeEvent *e)
+{
+    QWidget::resizeEvent(e);
+    if (m_scroll) {
+        const QRectF plot = plotRect();
+        m_scroll->setGeometry(int(plot.left()), height() - kScrollHeight - 2,
+                              int(plot.width()), kScrollHeight);
+    }
+}
+
+void WaveformView::syncScrollBar(double startSample, double endSample)
+{
+    if (!m_scroll || !m_hub)
+        return;
+
+    const double rate = double(m_hub->sampleRate());
+    const quint64 oldest = m_hub->channel(0).absoluteIndex(0);
+    const quint64 total = m_hub->samplesPerChannel();
+    const double win = m_windowSeconds * rate;
+    const double avail = double(total) - double(oldest);
+
+    const int hi = int(std::max(0.0, avail - win));                 // 可滚动到的最大左端
+    const int val = int(std::clamp(startSample - double(oldest), 0.0, double(hi)));
+    const int page = int(std::max(1.0, win));
+
+    m_syncingScroll = true;
+    m_scroll->setRange(0, hi);
+    m_scroll->setPageStep(page);
+    m_scroll->setValue(val);
+    m_syncingScroll = false;
+}
+
 void WaveformView::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.fillRect(rect(), kBg);
 
-    const QRectF plot(kLeftMargin, kTopMargin,
-                      width() - kLeftMargin - kRightMargin,
-                      height() - kTopMargin - kBottomMargin);
+    const QRectF plot = plotRect();
     p.fillRect(plot, kPlotBg);
 
     if (!m_hub) {
@@ -132,12 +198,16 @@ void WaveformView::paintEvent(QPaintEvent *)
     const double rate = double(m_hub->sampleRate());
     const double winSamples = m_windowSeconds * rate;
 
-    double endSample = double(total) - m_panSamples;
+    // 视窗右端：跟随态锁到最新样本；暂停态用冻结位置。再夹到有效历史范围，
+    // 避免暂停久了旧样本被环形缓冲覆盖后画面跑空。
+    double endSample = m_paused ? m_viewEnd : double(total);
     double startSample = endSample - winSamples;
-    if (startSample < 0) {
-        startSample = 0;
-        endSample = std::max(winSamples, 0.0);
-    }
+    const double oldest = double(m_hub->channel(0).absoluteIndex(0));
+    const double newest = double(total);
+    if (startSample < oldest) { startSample = oldest; endSample = oldest + winSamples; }
+    if (endSample > newest)   { endSample = newest;  startSample = newest - winSamples; }
+    if (startSample < 0.0)    { startSample = 0.0;   endSample = winSamples; }
+    m_viewEnd = endSample;
 
     // ---- 量程 ----
     double ymin, ymax;
@@ -195,11 +265,13 @@ void WaveformView::paintEvent(QPaintEvent *)
                    QString::number(v, 'g', 4));
     }
 
-    // ---- 横轴刻度（相对最新点的秒数）----
+    // ---- 横轴刻度（自数据开始采集起算的秒数，随视窗/拖动移动）----
+    const double tStart = startSample / rate;
+    const double tEnd   = endSample   / rate;
     for (int i = 0; i <= 4; ++i) {
-        const double t = -m_windowSeconds + m_windowSeconds * i / 4.0;
+        const double t = tStart + (tEnd - tStart) * i / 4.0;
         const double x = plot.left() + plot.width() * i / 4.0;
-        p.drawText(QRectF(x - 40, plot.bottom() + 4, 80, 18), Qt::AlignCenter,
+        p.drawText(QRectF(x - 44, plot.bottom() + 4, 88, 18), Qt::AlignCenter,
                    QString::number(t, 'f', 3) + QStringLiteral(" s"));
     }
 
@@ -210,13 +282,15 @@ void WaveformView::paintEvent(QPaintEvent *)
     if (m_paused) {
         p.setPen(QColor(0xFF, 0xC1, 0x07));
         p.drawText(plot.adjusted(8, 8, -8, -8), Qt::AlignRight | Qt::AlignTop,
-                   QStringLiteral("已暂停/历史浏览中（双击复位）"));
+                   QStringLiteral("已暂停 (停止跟随最新，可拖动进度条/波形浏览历史)"));
     }
     if (total == 0) {
         p.setPen(kAxis);
         p.drawText(plot, Qt::AlignCenter,
                    QStringLiteral("等待数据…（先打开串口 → 认证 → 开始上传）"));
     }
+
+    syncScrollBar(startSample, endSample);
 }
 
 void WaveformView::drawGrid(QPainter &p, const QRectF &plot) const
@@ -331,12 +405,14 @@ void WaveformView::drawCursor(QPainter &p, const QRectF &plot, double startSampl
     p.setPen(QPen(QColor(0xFF, 0xC1, 0x07), 1, Qt::DashLine));
     p.drawLine(QPointF(m_cursorX, plot.top()), QPointF(m_cursorX, plot.bottom()));
     const double frac = (m_cursorX - plot.left()) / std::max(1.0, plot.width());
-    const double tRel = -m_windowSeconds + m_windowSeconds * frac;
+    double tAbs = 0.0;
+    if (m_hub) {
+        const double rate = double(m_hub->sampleRate());
+        tAbs = (startSample + (endSample - startSample) * frac) / rate;   // 自采集起点的秒数
+    }
     p.setPen(QColor(0xFF, 0xC1, 0x07));
-    p.drawText(QRectF(m_cursorX - 60, plot.top() + 2, 120, 16), Qt::AlignCenter,
-               QStringLiteral("Δ %1 s").arg(tRel, 0, 'f', 4));
-    Q_UNUSED(startSample)
-    Q_UNUSED(endSample)
+    p.drawText(QRectF(m_cursorX - 70, plot.top() + 2, 140, 16), Qt::AlignCenter,
+               QStringLiteral("t %1 s").arg(tAbs, 0, 'f', 4));
 }
 
 void WaveformView::wheelEvent(QWheelEvent *e)
@@ -352,9 +428,11 @@ void WaveformView::wheelEvent(QWheelEvent *e)
 void WaveformView::mousePressEvent(QMouseEvent *e)
 {
     if (e->button() == Qt::LeftButton) {
+        if (!m_paused && m_hub)             // 未暂停时从当前位置开始拖（等价锁定右端）
+            m_viewEnd = double(m_hub->samplesPerChannel());
         m_dragging = true;
         m_dragAnchor = e->pos();
-        m_dragStartPan = m_panSamples;
+        m_dragStartViewEnd = m_viewEnd;
         setCursor(Qt::ClosedHandCursor);
     }
 }
@@ -363,12 +441,12 @@ void WaveformView::mouseMoveEvent(QMouseEvent *e)
 {
     m_cursorX = e->pos().x();
     if (m_dragging && m_hub) {
+        const QRectF plot = plotRect();
         const double rate = double(m_hub->sampleRate());
-        const double samplesPerPixel = (m_windowSeconds * rate) / std::max(1, width() - kLeftMargin - kRightMargin);
+        const double samplesPerPixel = (m_windowSeconds * rate) / std::max(1.0, plot.width());
         const double dx = e->pos().x() - m_dragAnchor.x();
-        m_panSamples = std::max(0.0, m_dragStartPan + dx * samplesPerPixel);
-        if (m_panSamples > 0.0)
-            m_paused = true;             // 一旦翻历史就停止实时跟随
+        m_viewEnd = m_dragStartViewEnd - dx * samplesPerPixel;   // 向右拖 = 看更早
+        setPaused(true);                                         // 一旦翻历史就停止跟随
     }
     update();
 }

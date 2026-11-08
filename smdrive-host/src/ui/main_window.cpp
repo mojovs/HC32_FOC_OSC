@@ -268,6 +268,14 @@ void MainWindow::buildUi()
     m_pauseAct = new QAction(QStringLiteral("暂停显示"), this);
     m_pauseAct->setCheckable(true);
     connect(m_pauseAct, &QAction::toggled, this, [this](bool on) { m_wave->setPaused(on); });
+    // 拖动波形 / 拖动底部进度条会自动暂停：回同步「暂停显示」的勾选态
+    connect(m_wave, &WaveformView::pausedChanged, this, [this](bool on) {
+        if (m_pauseAct->isChecked() == on)
+            return;
+        m_pauseAct->blockSignals(true);
+        m_pauseAct->setChecked(on);
+        m_pauseAct->blockSignals(false);
+    });
     auto *resetViewBtn = new QPushButton(QStringLiteral("复位视图/偏移"), dispBox);
     connect(resetViewBtn, &QPushButton::clicked, this, [this] { m_wave->resetView(); });
     auto *dispBtnRow = new QHBoxLayout();
