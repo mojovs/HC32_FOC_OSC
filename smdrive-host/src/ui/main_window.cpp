@@ -410,6 +410,18 @@ void MainWindow::buildUi()
     m_statusRate = new QLabel(QStringLiteral("0.0 帧/s"), this);
     m_statusSerial = new QLabel(QStringLiteral("串号: -"), this);
     m_statusRecord = new QLabel(QStringLiteral("未记录"), this);
+    // 读数每帧都在变；字段宽度若随内容变化，整条会左右抖动。按最宽样例给每个字段
+    // 设最小宽度：内容不超样例时宽度恒定（不抖动），万一超出也只是变宽而不裁切。
+    auto fixField = [](QLabel *l, const QString &widest) {
+        l->setMinimumWidth(l->fontMetrics().horizontalAdvance(widest) + 12);
+    };
+    fixField(m_statusFrames, QStringLiteral("帧: 99999999"));
+    fixField(m_statusDrop, QStringLiteral("丢帧: 9999999"));
+    fixField(m_statusRate, QStringLiteral("9999.9 帧/s · 9999.9 KB/s"));
+    fixField(m_statusSerial, QStringLiteral("串号: 112233445566778899AABBCC"));
+    fixField(m_statusRecord, QStringLiteral("记录中: 9999999 行 / 9999.9 MB"));
+    m_statusPort->setMinimumWidth(
+        m_statusPort->fontMetrics().horizontalAdvance(QStringLiteral("已连接: COM255")) + 10);
     // 全部放右侧（permanent）：左侧留给 showMessage 的临时提示，避免文字互相压盖
     statusBar()->addPermanentWidget(m_statusPort);
     statusBar()->addPermanentWidget(m_statusFrames);
