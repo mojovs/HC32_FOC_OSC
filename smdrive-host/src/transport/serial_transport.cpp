@@ -87,6 +87,7 @@ void SerialTransport::onReadyRead()
     if (!m_port)
         return;
     const QByteArray chunk = m_port->readAll();
+    emit bytesReceived(chunk);            // 先给调试助手（原始），再喂解码器
     m_decoder.push(chunk);
     publishFrames();
 }

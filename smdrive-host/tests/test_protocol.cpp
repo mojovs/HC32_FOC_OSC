@@ -1,4 +1,5 @@
 // 协议层单元测试：golden 用例 + 健壮性（计划书 §9.1 / §9.2）
+#include "app/serial_text_codec.h"
 #include "data/datahub.h"
 #include "data/ring_buffer.h"
 #include "protocol/frame.h"
@@ -289,6 +290,61 @@ private slots:
         QCOMPARE(hub.channel(kWaveFloatCount + 3).at(0), -1997.0f);
         QCOMPARE(qint32(hub.intData(0)), qint32(-1));               // 整型标量同样按有符号
         QCOMPARE(hub.channel(0).at(0), 0.0f);
+    }
+
+    // ---------- §9.3 串口调试助手：发送编码 / 接收渲染 ----------
+    void serialEncodeTextAppendsLineEnding()
+    {
+        bool ok = false;
+        QString err;
+        QCOMPARE(encodeSerialSend(QStringLiteral("AT"), false, SerialLineEnding::None, &ok, &err),
+                 QByteArray("AT"));
+        QCOMPARE(encodeSerialSend(QStringLiteral("AT"), false, SerialLineEnding::Lf, &ok, &err),
+                 QByteArray("AT\n"));
+        QCOMPARE(encodeSerialSend(QStringLiteral("AT"), false, SerialLineEnding::CrLf, &ok, &err),
+                 QByteArray("AT\r\n"));
+        QCOMPARE(encodeSerialSend(QStringLiteral("AT"), false, SerialLineEnding::Cr, &ok, &err),
+                 QByteArray("AT\r"));
+        QVERIFY(ok);
+        QVERIFY(err.isEmpty());
+    }
+
+    void serialEncodeHexParsesSeparatorsAndPrefix()
+    {
+        bool ok = false;
+        QString err;
+        QCOMPARE(encodeSerialSend(QStringLiteral("55 55 01"), true, SerialLineEnding::CrLf, &ok, &err),
+                 QByteArray::fromHex("555501"));                  // HEX 模式忽略换行
+        QCOMPARE(encodeSerialSend(QStringLiteral("0xAA,0xbb"), true, SerialLineEnding::None, &ok, &err),
+                 QByteArray::fromHex("AABB"));                    // 允许 0x 前缀 / 逗号 / 小写
+        QCOMPARE(encodeSerialSend(QStringLiteral("aaBBcc"), true, SerialLineEnding::None, &ok, &err),
+                 QByteArray::fromHex("AABBCC"));                  // 允许连写
+        QVERIFY(ok);
+        QCOMPARE(encodeSerialSend(QString(), true, SerialLineEnding::None, &ok, &err), QByteArray());
+        QVERIFY(ok);
+    }
+
+    void serialEncodeHexRejectsOddOrBadInput()
+    {
+        bool ok = true;
+        QString err;
+        QCOMPARE(encodeSerialSend(QStringLiteral("AAB"), true, SerialLineEnding::None, &ok, &err), QByteArray());
+        QVERIFY(!ok);
+        QVERIFY(!err.isEmpty());
+
+        ok = true;
+        err.clear();
+        QCOMPARE(encodeSerialSend(QStringLiteral("ZZ"), true, SerialLineEnding::None, &ok, &err), QByteArray());
+        QVERIFY(!ok);
+        QVERIFY(!err.isEmpty());
+    }
+
+    void serialRenderHexAndText()
+    {
+        QCOMPARE(renderSerialBytes(QByteArray::fromHex("0AFF"), true), QStringLiteral("0A FF "));
+        QCOMPARE(renderSerialBytes(QByteArray(), true), QString());
+        // 文本模式按本地 8 位解码，ASCII 直通
+        QCOMPARE(renderSerialBytes(QByteArray("OK\r\n"), false), QStringLiteral("OK\r\n"));
     }
 };
 

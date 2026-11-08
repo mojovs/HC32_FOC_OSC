@@ -1,5 +1,6 @@
 #include "ui/param_panel.h"
 
+#include "app/app_config.h"
 #include "app/channel_table.h"
 
 #include <QDoubleSpinBox>
@@ -58,33 +59,14 @@ ParamPanel::ParamPanel(QWidget *parent)
     auto *sendAll = new QPushButton(QStringLiteral("全部下发"), box);
     connect(sendAll, &QPushButton::clicked, this, [this] { emit requestAllParams(values()); });
 
-    auto *saveBtn = new QPushButton(QStringLiteral("保存方案…"), box);
-    connect(saveBtn, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getSaveFileName(this, QStringLiteral("保存参数方案"),
-                                                         QStringLiteral("params.json"),
-                                                         QStringLiteral("JSON (*.json)"));
-        if (path.isEmpty())
-            return;
-        QString err;
-        if (!saveProfile(path, &err))
-            QMessageBox::warning(this, QStringLiteral("保存失败"), err);
-    });
-
-    auto *loadBtn = new QPushButton(QStringLiteral("加载方案…"), box);
-    connect(loadBtn, &QPushButton::clicked, this, [this] {
-        const QString path = QFileDialog::getOpenFileName(this, QStringLiteral("加载参数方案"),
-                                                         QString(), QStringLiteral("JSON (*.json)"));
-        if (path.isEmpty())
-            return;
-        QString err;
-        if (!loadProfile(path, &err))
-            QMessageBox::warning(this, QStringLiteral("加载失败"), err);
-    });
+    // 方案(JSON)的保存/加载是低频操作，按钮已移到顶部「文件」菜单；
+    // 这里只在输入框上方加一行提示，避免用户找不到入口。
+    auto *hint = new QLabel(QStringLiteral("方案保存/加载见菜单：文件 → 保存/加载参数方案"), box);
+    hint->setToolTip(QStringLiteral("等价于本页所有参数连同 idx/名称整体存取，便于标定留档"));
 
     const int row = int(table.size()) + 1;
-    grid->addWidget(sendAll, row, 1);
-    grid->addWidget(saveBtn, row, 2);
-    grid->addWidget(loadBtn, row, 3);
+    grid->addWidget(sendAll, row, 1, 1, 3);
+    grid->addWidget(hint, row + 1, 0, 1, 4);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(4, 4, 4, 4);
@@ -171,6 +153,42 @@ bool ParamPanel::loadProfile(const QString &path, QString *error)
         m_spins[idx - 1]->setValue(value);
     }
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// 菜单入口（「文件」菜单）：把原来面板上的按钮逻辑搬到槽里，并记住上次路径。
+// ---------------------------------------------------------------------------
+void ParamPanel::promptSaveProfile()
+{
+    const QString last = AppConfig::lastParamProfile();
+    const QString path = QFileDialog::getSaveFileName(
+        this, QStringLiteral("保存参数方案"),
+        last.isEmpty() ? QStringLiteral("params.json") : last, QStringLiteral("JSON (*.json)"));
+    if (path.isEmpty())
+        return;
+    QString err;
+    if (!saveProfile(path, &err)) {
+        QMessageBox::warning(this, QStringLiteral("保存失败"), err);
+        return;
+    }
+    AppConfig::setLastParamProfile(path);
+    emit profileStatus(QStringLiteral("参数方案已保存: %1").arg(path));
+}
+
+void ParamPanel::promptLoadProfile()
+{
+    const QString last = AppConfig::lastParamProfile();
+    const QString path = QFileDialog::getOpenFileName(
+        this, QStringLiteral("加载参数方案"), last, QStringLiteral("JSON (*.json)"));
+    if (path.isEmpty())
+        return;
+    QString err;
+    if (!loadProfile(path, &err)) {
+        QMessageBox::warning(this, QStringLiteral("加载失败"), err);
+        return;
+    }
+    AppConfig::setLastParamProfile(path);
+    emit profileStatus(QStringLiteral("参数方案已加载: %1（确认后点「全部下发」写入驱动器）").arg(path));
 }
 
 } // namespace smd

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 
 namespace smd {
 
@@ -28,6 +29,10 @@ public:
 
     static QString lastParamProfile();
     static void setLastParamProfile(const QString &path);
+
+    // 串口调试助手的发送历史（最新在前，最多保留 20 条）
+    static QStringList sendHistory();
+    static void setSendHistory(const QStringList &history);
 };
 
 } // namespace smd

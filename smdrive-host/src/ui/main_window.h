@@ -1,4 +1,6 @@
-// 主窗口：工具栏 + 波形 + 数据表/参数/通道页 + 状态栏；串口与回放共用一个工作线程。
+// 主窗口：菜单栏(文件/设备/帮助) + 波形 + 数据表/参数/通道页 + 状态栏；
+// 串口与回放共用一个工作线程。
+// 低频操作（认证、记录/回放、参数方案、退出）收进顶部菜单栏，右栏只留高频调控项。
 #pragma once
 
 #include "protocol/frame.h"
@@ -14,8 +16,10 @@ class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
 class QSpinBox;
+class QStackedWidget;
 class QTabWidget;
 class QTimer;
+class QToolButton;
 QT_END_NAMESPACE
 
 namespace smd {
@@ -24,6 +28,7 @@ class DataHub;
 class ITransport;
 class ParamPanel;
 class Recorder;
+class SerialAssistant;
 class SerialTransport;
 class ReplayTransport;
 class TablePanel;
@@ -40,6 +45,7 @@ public:
         QString recordCsvPath;       // 启动即记录 CSV
         QString screenshotPath;      // 抓一张界面截图（开发/验证用）
         int screenshotDelayMs = 1500;
+        QString uiMode = QStringLiteral("control");   // control | serial（启动时的右栏模式）
         QVector<QPair<int, double>> channelGains;   // 启动时预设的每通道显示增益
         int autoCloseMs = 0;         // >0 则到点自动退出（自动化验证用）
         int sampleRateHz = 10000;
@@ -66,15 +72,19 @@ private slots:
     void onTransportError(const QString &msg);
     void onCounters(quint64 framesData, quint64 dropped, quint64 bytesIn);
     void onSerialSeen(const QString &serial);
+    void onModeChanged(int id);                      // 控制台 / 串口助手 切换
+    void onAbout();                                  // 帮助 → 关于
 
 private:
-    void buildUi();                 // 示波器式布局：左波形 / 右调控面板
+    void buildUi();                 // 示波器式布局：顶部菜单栏 + 左波形 / 右调控面板
+    void buildMenus();              // 文件 / 设备 / 帮助
     void wireSignals();
     void sendCommand(const QByteArray &bytes);
     void switchToReplay(const QString &path, double fps);
     void startRecording(const QString &rawPath, const QString &csvPath, bool askDir);
     void stopRecording();
     QVector<int> visibleChannels() const;
+    bool serialModeActive() const;   // 当前是否处于「串口助手」模式
 
     Options m_opt;
     QThread *m_worker = nullptr;
@@ -89,6 +99,12 @@ private:
     TablePanel *m_table = nullptr;
     ParamPanel *m_params = nullptr;
     QTabWidget *m_tabs = nullptr;
+
+    SerialAssistant *m_assistant = nullptr;
+    QStackedWidget *m_mainStack = nullptr;   // 左主区：0 波形 / 1 串口终端
+    QStackedWidget *m_rightStack = nullptr;  // 右栏：0 控制台 / 1 串口参数
+    QToolButton *m_modeControlBtn = nullptr;
+    QToolButton *m_modeSerialBtn = nullptr;
 
     QComboBox *m_portBox = nullptr;
     QSpinBox *m_rateBox = nullptr;
@@ -112,6 +128,10 @@ private:
     QAction *m_recordAct = nullptr;
     QAction *m_replayAct = nullptr;
     QAction *m_pauseAct = nullptr;
+    QAction *m_saveProfileAct = nullptr;    // 文件 → 保存参数方案…
+    QAction *m_loadProfileAct = nullptr;    // 文件 → 加载参数方案…
+    QAction *m_quitAct = nullptr;           // 文件 → 退出
+    QAction *m_aboutAct = nullptr;          // 帮助 → 关于
 
     QTimer *m_tick = nullptr;
     quint64 m_lastFrames = 0;

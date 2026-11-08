@@ -37,4 +37,14 @@ void AppConfig::setLastReportDir(const QString &dir) { settings().setValue(QStri
 QString AppConfig::lastParamProfile() { return settings().value(QStringLiteral("param/profile")).toString(); }
 void AppConfig::setLastParamProfile(const QString &path) { settings().setValue(QStringLiteral("param/profile"), path); }
 
+QStringList AppConfig::sendHistory()
+{
+    return settings().value(QStringLiteral("serial/sendHistory")).toStringList().mid(0, 20);
+}
+void AppConfig::setSendHistory(const QStringList &history)
+{
+    const QStringList trimmed = history.mid(0, 20);   // mid() 是 QList<QString>，先转回 QStringList
+    settings().setValue(QStringLiteral("serial/sendHistory"), trimmed);
+}
+
 } // namespace smd

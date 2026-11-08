@@ -31,6 +31,8 @@ signals:
     void closed();
     void errorText(const QString &msg);
     void countersUpdated(quint64 framesData, quint64 droppedFrames, quint64 bytesIn);
+    // 原始字节（未经解码）：供串口调试助手显示。解码链路照旧并行，互不影响。
+    void bytesReceived(const QByteArray &chunk);
 };
 
 } // namespace smd

@@ -36,6 +36,8 @@ add_library(smd_core STATIC
     src/app/app_config.cpp
     src/app/app_config.h
     src/app/channel_table.h
+    src/app/serial_text_codec.cpp
+    src/app/serial_text_codec.h
 )
 target_include_directories(smd_core PUBLIC src)
 target_link_libraries(smd_core PUBLIC Qt5::Core Qt5::Gui Qt5::SerialPort)
@@ -53,6 +55,8 @@ add_executable(smdrive-host
     src/ui/table_panel.h
     src/ui/param_panel.cpp
     src/ui/param_panel.h
+    src/ui/serial_assistant.cpp
+    src/ui/serial_assistant.h
 )
 target_link_libraries(smdrive-host PRIVATE smd_core Qt5::Widgets)
 # set_target_properties(smdrive-host PROPERTIES WIN32_EXECUTABLE ON)

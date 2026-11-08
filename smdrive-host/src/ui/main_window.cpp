@@ -8,11 +8,13 @@
 #include "transport/replay_transport.h"
 #include "transport/serial_transport.h"
 #include "ui/param_panel.h"
+#include "ui/serial_assistant.h"
 #include "ui/table_panel.h"
 #include "ui/waveform_view.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDateTime>
@@ -24,7 +26,10 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QKeySequence>
 #include <QLabel>
+#include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPixmap>
 #include <QPushButton>
@@ -32,6 +37,7 @@
 #include <QSerialPortInfo>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -59,6 +65,12 @@ MainWindow::MainWindow(const Options &opt, QWidget *parent)
 
     m_active = m_serial;
     wireSignals();
+
+    // 启动模式：--ui-mode serial 时直接进入串口助手（截图/自动化用）
+    if (m_opt.uiMode.compare(QStringLiteral("serial"), Qt::CaseInsensitive) == 0) {
+        m_modeSerialBtn->setChecked(true);
+        onModeChanged(1);
+    }
 
     m_hub->configure(m_opt.sampleRateHz, AppConfig::historySeconds());
     m_rateBox->setValue(m_opt.sampleRateHz);
@@ -167,6 +179,39 @@ void MainWindow::buildUi()
     panelLayout->setContentsMargins(8, 8, 8, 8);
     panelLayout->setSpacing(10);
 
+    // ---- 模式切换：控制台 / 串口助手（右栏顶部，两种模式都常驻）----
+    auto *modeRow = new QHBoxLayout();
+    modeRow->addWidget(new QLabel(QStringLiteral("模式"), panel));
+    // 分段按钮：勾选态用高亮底色，两个按钮等宽，避免与主题冲突
+    const QString segStyle = QStringLiteral(
+        "QToolButton{border:1px solid #b0b0b0;padding:4px 10px;background:#f0f0f0;}"
+        "QToolButton:checked{background:#3d7eff;color:white;border-color:#3d7eff;}");
+    m_modeControlBtn = new QToolButton(panel);
+    m_modeControlBtn->setText(QStringLiteral("控制台"));
+    m_modeControlBtn->setCheckable(true);
+    m_modeControlBtn->setChecked(true);
+    m_modeControlBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_modeControlBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_modeControlBtn->setMinimumHeight(30);
+    m_modeControlBtn->setStyleSheet(segStyle);
+    m_modeControlBtn->setToolTip(QStringLiteral("波形 / 参数 / 数据表（协议控制台）"));
+    m_modeSerialBtn = new QToolButton(panel);
+    m_modeSerialBtn->setText(QStringLiteral("串口助手"));
+    m_modeSerialBtn->setCheckable(true);
+    m_modeSerialBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_modeSerialBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_modeSerialBtn->setMinimumHeight(30);
+    m_modeSerialBtn->setStyleSheet(segStyle);
+    m_modeSerialBtn->setToolTip(QStringLiteral("原始串口收发终端（类似 XCOM）"));
+    modeRow->addWidget(m_modeControlBtn, 1);
+    modeRow->addWidget(m_modeSerialBtn, 1);
+    auto *modeGroup = new QButtonGroup(this);
+    modeGroup->setExclusive(true);
+    modeGroup->addButton(m_modeControlBtn, 0);
+    modeGroup->addButton(m_modeSerialBtn, 1);
+    connect(modeGroup, &QButtonGroup::idClicked, this, &MainWindow::onModeChanged);
+    panelLayout->addLayout(modeRow);
+
     // ---- 连接 ----
     QVBoxLayout *connLayout = nullptr;
     auto *connBox = makeGroup(QStringLiteral("连接"), panel, &connLayout);
@@ -192,9 +237,15 @@ void MainWindow::buildUi()
     connLayout->addWidget(m_serialLabel);
     panelLayout->addWidget(connBox);
 
+    // ---- 右栏内容页 0：控制台（显示 / 通道 / 参数·数据表）----
+    auto *controlPage = new QWidget(panel);
+    auto *controlLayout = new QVBoxLayout(controlPage);
+    controlLayout->setContentsMargins(0, 0, 0, 0);
+    controlLayout->setSpacing(10);
+
     // ---- 显示 ----
     QVBoxLayout *dispLayout = nullptr;
-    auto *dispBox = makeGroup(QStringLiteral("显示"), panel, &dispLayout);
+    auto *dispBox = makeGroup(QStringLiteral("显示"), controlPage, &dispLayout);
     auto *rateRow = new QHBoxLayout();
     rateRow->addWidget(new QLabel(QStringLiteral("采样率 (Hz)"), dispBox));
     m_rateBox = new QSpinBox(dispBox);
@@ -223,34 +274,32 @@ void MainWindow::buildUi()
     dispBtnRow->addWidget(makeActionButton(m_pauseAct, dispBox));
     dispBtnRow->addWidget(resetViewBtn);
     dispLayout->addLayout(dispBtnRow);
-    panelLayout->addWidget(dispBox);
+    controlLayout->addWidget(dispBox);
 
-    // ---- 运行控制 ----
-    QVBoxLayout *runLayout = nullptr;
-    auto *runBox = makeGroup(QStringLiteral("运行控制"), panel, &runLayout);
+    // ---- 运行控制（认证 / 上传 / 启停 / 加减速）----
+    // 会话级低频操作，收进顶部「设备」菜单（见 buildMenus()），右栏不再占位。
     m_authAct = new QAction(QStringLiteral("认证"), this);
+    m_authAct->setStatusTip(QStringLiteral("发送认证帧 55 55 01 AA AA，并读取驱动器序列号"));
     connect(m_authAct, &QAction::triggered, this, &MainWindow::onAuthClicked);
+
     m_uploadAct = new QAction(QStringLiteral("开始上传"), this);
+    m_uploadAct->setStatusTip(QStringLiteral("发送 03 命令，请求驱动器开始上传采样数据"));
     connect(m_uploadAct, &QAction::triggered, this, &MainWindow::onStartUploadClicked);
+
     m_startAct = new QAction(QStringLiteral("启动"), this);
+    m_startAct->setStatusTip(QStringLiteral("07 / 0A：启动或停止电机运行"));
     connect(m_startAct, &QAction::triggered, this, &MainWindow::onStartStopClicked);
+
     m_accelAct = new QAction(QStringLiteral("加速"), this);
+    m_accelAct->setStatusTip(QStringLiteral("08：加速"));
     m_decelAct = new QAction(QStringLiteral("减速"), this);
+    m_decelAct->setStatusTip(QStringLiteral("09：减速"));
     connect(m_accelAct, &QAction::triggered, this, &MainWindow::onAccelClicked);
     connect(m_decelAct, &QAction::triggered, this, &MainWindow::onDecelClicked);
 
-    auto *runGrid = new QGridLayout();
-    runGrid->addWidget(makeActionButton(m_authAct, runBox), 0, 0);
-    runGrid->addWidget(makeActionButton(m_uploadAct, runBox), 0, 1);
-    runGrid->addWidget(makeActionButton(m_startAct, runBox), 1, 0);
-    runGrid->addWidget(makeActionButton(m_accelAct, runBox), 1, 1);
-    runGrid->addWidget(makeActionButton(m_decelAct, runBox), 2, 0);
-    runLayout->addLayout(runGrid);
-    panelLayout->addWidget(runBox);
-
     // ---- 波形通道（勾选显示 + 绘图偏移，仿示波器通道旋钮；只改本地显示，不发帧）----
     QVBoxLayout *chanOuter = nullptr;
-    auto *chanBox = makeGroup(QStringLiteral("波形通道（偏移只改本地绘图）"), panel, &chanOuter);
+    auto *chanBox = makeGroup(QStringLiteral("波形通道（偏移只改本地绘图）"), controlPage, &chanOuter);
     auto *chanGrid = new QGridLayout();
     chanGrid->setHorizontalSpacing(6);
     const auto &meta = channelTable();
@@ -294,7 +343,7 @@ void MainWindow::buildUi()
         chanGrid->addWidget(offset, row, col + 2);
     }
     chanOuter->addLayout(chanGrid);
-    panelLayout->addWidget(chanBox);
+    controlLayout->addWidget(chanBox);
 
     // ---- 参数 / 数据表 ----
     m_table = new TablePanel(this);
@@ -306,25 +355,31 @@ void MainWindow::buildUi()
         for (int i = 0; i < values.size(); ++i)
             sendCommand(FrameBuilder::param(i, float(values[i])));
     });
+    connect(m_params, &ParamPanel::profileStatus, this, [this](const QString &text) {
+        statusBar()->showMessage(text, 6000);
+    });
 
-    m_tabs = new QTabWidget(panel);
+    m_tabs = new QTabWidget(controlPage);
     m_tabs->addTab(m_params, QStringLiteral("参数"));
     m_tabs->addTab(m_table, QStringLiteral("数据表"));
-    panelLayout->addWidget(m_tabs, 1);
+    controlLayout->addWidget(m_tabs, 1);
 
-    // ---- 记录 / 回放 ----
-    QVBoxLayout *recLayout = nullptr;
-    auto *recBox = makeGroup(QStringLiteral("记录 / 回放"), panel, &recLayout);
+    // ---- 记录 / 回放（文件类低频操作，收进「文件」菜单，见 buildMenus()）----
     m_recordAct = new QAction(QStringLiteral("开始记录"), this);
     m_recordAct->setCheckable(true);
+    m_recordAct->setStatusTip(QStringLiteral("选择目录，同时记录 CSV 宽表与原始 .bin 流（可再次回放）"));
     connect(m_recordAct, &QAction::toggled, this, &MainWindow::onRecordToggled);
-    m_replayAct = new QAction(QStringLiteral("回放…"), this);
+
+    m_replayAct = new QAction(QStringLiteral("回放原始流…"), this);
+    m_replayAct->setStatusTip(QStringLiteral("喂留档的 .bin 原始字节流，无需硬件即可复现波形"));
     connect(m_replayAct, &QAction::triggered, this, &MainWindow::onReplayClicked);
-    auto *recRow = new QHBoxLayout();
-    recRow->addWidget(makeActionButton(m_recordAct, recBox));
-    recRow->addWidget(makeActionButton(m_replayAct, recBox));
-    recLayout->addLayout(recRow);
-    panelLayout->addWidget(recBox);
+
+    // ---- 右栏内容页 1：串口助手参数（terminalWidget 在下面放进左主区）----
+    m_assistant = new SerialAssistant(this);
+    m_rightStack = new QStackedWidget(panel);
+    m_rightStack->addWidget(controlPage);                      // 0 控制台
+    m_rightStack->addWidget(m_assistant->optionsWidget());     // 1 串口助手
+    panelLayout->addWidget(m_rightStack, 1);
 
     auto *panelScroll = new QScrollArea(this);
     panelScroll->setWidget(panel);
@@ -334,8 +389,13 @@ void MainWindow::buildUi()
     panelScroll->setMinimumWidth(560);
     panelScroll->setMaximumWidth(900);
 
+    // 左主区：0 波形 / 1 串口终端，随右栏模式切换
+    m_mainStack = new QStackedWidget(this);
+    m_mainStack->addWidget(m_wave);
+    m_mainStack->addWidget(m_assistant->terminalWidget());
+
     auto *splitter = new QSplitter(Qt::Horizontal, this);
-    splitter->addWidget(m_wave);
+    splitter->addWidget(m_mainStack);
     splitter->addWidget(panelScroll);
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 0);
@@ -357,6 +417,84 @@ void MainWindow::buildUi()
     statusBar()->addPermanentWidget(m_statusRate);
     statusBar()->addPermanentWidget(m_statusSerial);
     statusBar()->addPermanentWidget(m_statusRecord);
+
+    buildMenus();
+}
+
+// ---------------------------------------------------------------------------
+// 顶部菜单栏：把低频操作从右栏搬上来。
+//   文件：回放 / 记录 / 参数方案 / 退出
+//   设备：认证 / 开始上传 / 启动(停止) / 加速 / 减速
+//   帮助：关于
+// 这些 QAction 若在别处也有按钮，状态会自动同步（此处已无面板按钮）。
+// ---------------------------------------------------------------------------
+void MainWindow::buildMenus()
+{
+    QMenu *fileMenu = menuBar()->addMenu(QStringLiteral("文件(&F)"));
+    m_replayAct->setShortcut(QKeySequence::Open);                 // Ctrl+O
+    fileMenu->addAction(m_replayAct);
+    fileMenu->addSeparator();
+    m_recordAct->setShortcut(QKeySequence(QStringLiteral("Ctrl+R")));
+    fileMenu->addAction(m_recordAct);
+    fileMenu->addSeparator();
+
+    m_loadProfileAct = new QAction(QStringLiteral("加载参数方案…"), this);
+    m_loadProfileAct->setShortcut(QKeySequence(QStringLiteral("Ctrl+L")));
+    m_loadProfileAct->setStatusTip(QStringLiteral("从 JSON 读取 10 路参数（仅填入界面，确认后再下发）"));
+    connect(m_loadProfileAct, &QAction::triggered, this, [this] {
+        m_tabs->setCurrentWidget(m_params);      // 切到「参数」页，让用户看到回填结果
+        m_params->promptLoadProfile();
+    });
+    fileMenu->addAction(m_loadProfileAct);
+
+    m_saveProfileAct = new QAction(QStringLiteral("保存参数方案…"), this);
+    m_saveProfileAct->setShortcut(QKeySequence::Save);            // Ctrl+S
+    m_saveProfileAct->setStatusTip(QStringLiteral("把 10 路参数连同 idx/名称存成 JSON 留档"));
+    connect(m_saveProfileAct, &QAction::triggered, this, [this] {
+        m_tabs->setCurrentWidget(m_params);
+        m_params->promptSaveProfile();
+    });
+    fileMenu->addAction(m_saveProfileAct);
+
+    fileMenu->addSeparator();
+    m_quitAct = new QAction(QStringLiteral("退出"), this);
+    // 用显式 Ctrl+Q：Windows 上 QKeySequence::Quit 不绑按键（那是 macOS/X11 的约定）
+    m_quitAct->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
+    connect(m_quitAct, &QAction::triggered, this, &QWidget::close);
+    fileMenu->addAction(m_quitAct);
+
+    QMenu *devMenu = menuBar()->addMenu(QStringLiteral("设备(&D)"));
+    m_authAct->setShortcut(QKeySequence(QStringLiteral("F5")));
+    m_uploadAct->setShortcut(QKeySequence(QStringLiteral("F6")));
+    m_startAct->setShortcut(QKeySequence(QStringLiteral("F7")));
+    m_accelAct->setShortcut(QKeySequence(QStringLiteral("F8")));
+    m_decelAct->setShortcut(QKeySequence(QStringLiteral("F9")));
+    devMenu->addAction(m_authAct);
+    devMenu->addAction(m_uploadAct);
+    devMenu->addSeparator();
+    devMenu->addAction(m_startAct);
+    devMenu->addAction(m_accelAct);
+    devMenu->addAction(m_decelAct);
+
+    QMenu *helpMenu = menuBar()->addMenu(QStringLiteral("帮助(&H)"));
+    m_aboutAct = new QAction(QStringLiteral("关于 SMotorDrive 上位机"), this);
+    connect(m_aboutAct, &QAction::triggered, this, &MainWindow::onAbout);
+    helpMenu->addAction(m_aboutAct);
+}
+
+void MainWindow::onAbout()
+{
+    QMessageBox::about(
+        this, QStringLiteral("关于 SMotorDrive 上位机"),
+        QStringLiteral(
+            "<b>SMotorDrive 上位机（Qt 版）</b> %1<br>"
+            "目标平台：Windows x64 · Qt %2 · MSVC2019<br><br>"
+            "替代原厂上位机的调试/标定工具，按与其驱动器固件配套的串口协议实现，"
+            "不含联网授权与 MySQL 依赖。<br><br>"
+            "<b>下行</b>：<code>55 55 CMD [payload] AA AA</code><br>"
+            "01 认证 · 03 开始上传 · 06 参数 · 07 启动 · 08 加速 · 09 减速 · 0A 停止<br>"
+            "<b>上行</b>：<code>55 55 02 + 序列号</code> · <code>55 55 04 + 1710B 数据</code>")
+            .arg(QApplication::applicationVersion(), QStringLiteral(QT_VERSION_STR)));
 }
 
 void MainWindow::wireSignals()
@@ -388,6 +526,38 @@ void MainWindow::wireSignals()
         if (m_serial)
             m_serial->setPortName(m_portBox->currentText());
     });
+
+    // 串口调试助手：原始字节双向中转（协议解码照旧并行，互不影响）
+    connect(m_serial, &ITransport::bytesReceived, this,
+            [this](const QByteArray &chunk) { m_assistant->appendRx(chunk); });
+    connect(m_assistant, &SerialAssistant::requestSend, this, [this](const QByteArray &bytes) {
+        if (!m_serial || !m_serial->isOpen() || m_active != m_serial) {
+            statusBar()->showMessage(QStringLiteral("未打开串口：内容未发送"), 3000);
+            return;
+        }
+        QMetaObject::invokeMethod(m_serial, "sendBytes", Qt::QueuedConnection, Q_ARG(QByteArray, bytes));
+        m_assistant->appendTx(bytes);
+    });
+    connect(m_assistant, &SerialAssistant::requestBaudRate, this, [this](int baud) {
+        if (baud <= 0)
+            return;
+        AppConfig::setBaudRate(baud);
+        if (!m_serial)
+            return;
+        const bool wasOpen = m_serial->isOpen();
+        m_serial->setBaudRate(baud);
+        if (wasOpen) {   // 端口已开：重开一次让新波特率生效
+            QMetaObject::invokeMethod(m_serial, "close", Qt::BlockingQueuedConnection);
+            m_pendingAuth = !serialModeActive();
+            QMetaObject::invokeMethod(m_serial, "open", Qt::QueuedConnection);
+        }
+        statusBar()->showMessage(QStringLiteral("波特率已设为 %1").arg(baud), 3000);
+    });
+    // 助手工具条上的「打开串口 / 断开串口」复用主窗口同一套连接逻辑
+    connect(m_assistant, &SerialAssistant::requestToggleConnection, this,
+            [this] { onTogglePort(); });
+    connect(m_assistant, &SerialAssistant::notice, this,
+            [this](const QString &text) { statusBar()->showMessage(text, 4000); });
 }
 
 void MainWindow::onRefreshPorts()
@@ -481,6 +651,27 @@ QVector<int> MainWindow::visibleChannels() const
             out.append(c);
     }
     return out;
+}
+
+bool MainWindow::serialModeActive() const
+{
+    return m_modeSerialBtn && m_modeSerialBtn->isChecked();
+}
+
+// 控制台 <-> 串口助手：左主区与右栏同时切换。
+// 切回控制台且串口已开时，补发一次认证帧，恢复上位机侧会话。
+void MainWindow::onModeChanged(int id)
+{
+    if (m_mainStack)
+        m_mainStack->setCurrentIndex(id);
+    if (m_rightStack)
+        m_rightStack->setCurrentIndex(id);
+
+    if (id == 0 && m_serial && m_serial->isOpen() && m_pendingAuth) {
+        QTimer::singleShot(50, this, [this] { sendCommand(FrameBuilder::auth()); });
+    }
+    statusBar()->showMessage(id == 1 ? QStringLiteral("已切到串口调试助手")
+                                     : QStringLiteral("已切到控制台"), 3000);
 }
 
 void MainWindow::startRecording(const QString &rawPath, const QString &csvPath, bool askDir)
@@ -577,7 +768,10 @@ void MainWindow::onTransportOpened()
     m_statusPort->setText(QStringLiteral("已连接: %1").arg(desc));
     if (m_connLabel)
         m_connLabel->setText(QStringLiteral("已连接: %1").arg(desc));
-    if (m_pendingAuth) {
+    if (m_assistant)
+        m_assistant->setConnected(m_serial && m_active == m_serial && m_serial->isOpen());
+    // 串口助手模式下不自动补发认证帧，避免对非本驱动器设备发出意外字节
+    if (m_pendingAuth && !serialModeActive()) {
         // 打开/重连成功后自动补发认证帧，恢复上位机侧会话
         QTimer::singleShot(200, this, [this] { sendCommand(FrameBuilder::auth()); });
     }
@@ -589,6 +783,8 @@ void MainWindow::onTransportClosed()
     m_statusPort->setText(QStringLiteral("已断开"));
     if (m_connLabel)
         m_connLabel->setText(QStringLiteral("已断开"));
+    if (m_assistant)
+        m_assistant->setConnected(false);
 }
 
 void MainWindow::onTransportError(const QString &msg)

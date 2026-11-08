@@ -11,6 +11,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setApplicationName(QStringLiteral("smdrive-host"));
     QApplication::setOrganizationName(QStringLiteral("SMotorDrive"));
+    QApplication::setApplicationVersion(QStringLiteral("1.0.0"));   // 与 installer 版本一致，用于「帮助 → 关于」
     qRegisterMetaType<smd::DecodedFrame>("smd::DecodedFrame");
 
     QCommandLineParser parser;
@@ -43,8 +44,11 @@ int main(int argc, char *argv[])
     const QCommandLineOption winOpt(QStringLiteral("window"),
                                     QStringLiteral("显示窗口秒数"), QStringLiteral("sec"),
                                     QStringLiteral("0.2"));
+    const QCommandLineOption uiModeOpt(QStringLiteral("ui-mode"),
+                                       QStringLiteral("启动时的右栏模式: control | serial"),
+                                       QStringLiteral("mode"), QStringLiteral("control"));
     parser.addOptions({replayOpt, fpsOpt, rawOpt, csvOpt, closeOpt, shotOpt, shotDelayOpt, gainOpt,
-                       rateOpt, winOpt});
+                       rateOpt, winOpt, uiModeOpt});
     parser.process(app);
 
     smd::MainWindow::Options opt;
@@ -57,6 +61,7 @@ int main(int argc, char *argv[])
     opt.screenshotDelayMs = parser.value(shotDelayOpt).toInt();
     opt.sampleRateHz = parser.value(rateOpt).toInt();
     opt.windowSeconds = parser.value(winOpt).toDouble();
+    opt.uiMode = parser.value(uiModeOpt);
 
     for (const QString &item : parser.value(gainOpt).split(QLatin1Char(','), Qt::SkipEmptyParts)) {
         const QStringList kv = item.split(QLatin1Char('='));
