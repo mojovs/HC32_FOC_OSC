@@ -80,10 +80,22 @@ QByteArray encodeSerialSend(const QString &text, bool hex, SerialLineEnding line
     return out;
 }
 
-QString renderSerialBytes(const QByteArray &bytes, bool hex)
+QString renderSerialBytes(const QByteArray &bytes, SerialDisplayFormat format)
 {
-    if (!hex)
+    if (format == SerialDisplayFormat::Text)
         return QString::fromLocal8Bit(bytes);
+
+    if (format == SerialDisplayFormat::Binary) {
+        QString out;
+        out.reserve(bytes.size() * 9);
+        for (char c : bytes) {
+            const unsigned char b = static_cast<unsigned char>(c);
+            for (int bit = 7; bit >= 0; --bit)
+                out.append((b & (1u << bit)) != 0u ? QLatin1Char('1') : QLatin1Char('0'));
+            out.append(QLatin1Char(' '));
+        }
+        return out;
+    }
 
     static const char kDigits[] = "0123456789ABCDEF";
     QString out;

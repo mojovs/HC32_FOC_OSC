@@ -339,12 +339,16 @@ private slots:
         QVERIFY(!err.isEmpty());
     }
 
-    void serialRenderHexAndText()
+    void serialRenderTextHexAndBinary()
     {
-        QCOMPARE(renderSerialBytes(QByteArray::fromHex("0AFF"), true), QStringLiteral("0A FF "));
-        QCOMPARE(renderSerialBytes(QByteArray(), true), QString());
         // 文本模式按本地 8 位解码，ASCII 直通
-        QCOMPARE(renderSerialBytes(QByteArray("OK\r\n"), false), QStringLiteral("OK\r\n"));
+        QCOMPARE(renderSerialBytes(QByteArray("OK\r\n"), SerialDisplayFormat::Text), QStringLiteral("OK\r\n"));
+        QCOMPARE(renderSerialBytes(QByteArray::fromHex("0AFF"), SerialDisplayFormat::Hex), QStringLiteral("0A FF "));
+        QCOMPARE(renderSerialBytes(QByteArray(), SerialDisplayFormat::Hex), QString());
+        // 二进制模式每字节 8 位、空格分隔
+        QCOMPARE(renderSerialBytes(QByteArray::fromHex("41FF"), SerialDisplayFormat::Binary),
+                 QStringLiteral("01000001 11111111 "));
+        QCOMPARE(renderSerialBytes(QByteArray(), SerialDisplayFormat::Binary), QString());
     }
 };
 

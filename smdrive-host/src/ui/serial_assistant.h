@@ -60,7 +60,7 @@ private:
     void bumpCounters();
     void rememberSend(const QString &text);
     void saveHistory() const;
-    bool hexDisplay() const;
+    SerialDisplayFormat displayFormat() const;
     bool hexSend() const;
     SerialLineEnding lineEnding() const;
 

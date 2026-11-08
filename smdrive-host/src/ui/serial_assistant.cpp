@@ -173,6 +173,7 @@ void SerialAssistant::buildOptions()
     m_displayFormatBox = new QComboBox(paramBox);
     m_displayFormatBox->addItem(QStringLiteral("文本"));
     m_displayFormatBox->addItem(QStringLiteral("HEX"));
+    m_displayFormatBox->addItem(QStringLiteral("二进制"));
     fmtRow->addWidget(m_displayFormatBox, 1);
     paramLayout->addLayout(fmtRow);
     layout->addWidget(paramBox);
@@ -225,7 +226,7 @@ void SerialAssistant::flushRx()
     if (!m_rxPending.isEmpty()) {
         const QByteArray batch = m_rxPending;
         m_rxPending.clear();
-        appendDisplay(renderSerialBytes(batch, hexDisplay()), false);
+        appendDisplay(renderSerialBytes(batch, displayFormat()), false);
     } else if (m_rxFlushTimer) {
         m_rxFlushTimer->stop();
     }
@@ -248,7 +249,7 @@ void SerialAssistant::appendTx(const QByteArray &bytes)
         return;
     if (m_pauseBox && m_pauseBox->isChecked())
         return;
-    appendDisplay(renderSerialBytes(bytes, hexDisplay()), true);
+    appendDisplay(renderSerialBytes(bytes, displayFormat()), true);
 }
 
 void SerialAssistant::appendDisplay(const QString &text, bool isTx)
@@ -405,9 +406,15 @@ void SerialAssistant::bumpCounters()
         m_countLabel->setText(QStringLiteral("收 %1 B · 发 %2 B").arg(m_rxBytes).arg(m_txBytes));
 }
 
-bool SerialAssistant::hexDisplay() const
+SerialDisplayFormat SerialAssistant::displayFormat() const
 {
-    return m_displayFormatBox && m_displayFormatBox->currentIndex() == 1;
+    if (!m_displayFormatBox)
+        return SerialDisplayFormat::Text;
+    switch (m_displayFormatBox->currentIndex()) {
+    case 1:  return SerialDisplayFormat::Hex;
+    case 2:  return SerialDisplayFormat::Binary;
+    default: return SerialDisplayFormat::Text;
+    }
 }
 
 bool SerialAssistant::hexSend() const
