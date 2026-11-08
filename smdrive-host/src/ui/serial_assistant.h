@@ -18,6 +18,8 @@ class QComboBox;
 class QLabel;
 class QPlainTextEdit;
 class QPushButton;
+class QShowEvent;
+class QTimer;
 QT_END_NAMESPACE
 
 namespace smd {
@@ -47,12 +49,14 @@ signals:
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
 
 private:
     void buildTerminal();
     void buildOptions();
     void onSendClicked();
     void appendDisplay(const QString &text, bool isTx);
+    void flushRx();                              // 定时把攒下的接收字节一次性渲染
     void bumpCounters();
     void rememberSend(const QString &text);
     void saveHistory() const;
@@ -81,6 +85,11 @@ private:
     QCheckBox *m_timestampBox = nullptr;
     QCheckBox *m_autoScrollBox = nullptr;
     QCheckBox *m_pauseBox = nullptr;
+
+    // 接收侧批量渲染：串口二进制流很大，逐块 insertText/ensureCursorVisible 会把
+    // GUI 线程淹死（实测开始上传后直接卡死）。改为攒到 m_rxPending，由定时器节流刷新。
+    QByteArray m_rxPending;
+    QTimer *m_rxFlushTimer = nullptr;
 
     quint64 m_rxBytes = 0;
     quint64 m_txBytes = 0;

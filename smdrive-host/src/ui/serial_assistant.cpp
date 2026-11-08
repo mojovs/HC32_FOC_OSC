@@ -14,9 +14,11 @@
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QTextBlock>
 #include <QTextCursor>
 #include <QTime>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace smd {
@@ -25,6 +27,8 @@ namespace {
 
 constexpr int kMaxLogBlocks = 5000;      // 日志最多保留的行数（超出丢最旧）
 constexpr int kInlineWrapChars = 4096;   // 非时间戳模式下，单行超过这么多字符就强制换行
+constexpr int kRxFlushMs = 33;           // 接收日志刷新节流（约 30 Hz）
+constexpr int kMaxRxPending = 256 * 1024; // 未渲染接收字节上限，超出丢最旧
 
 void setMonospace(QWidget *w)
 {
@@ -43,6 +47,10 @@ SerialAssistant::SerialAssistant(QWidget *parent)
     m_optionsPanel = new QWidget(this);
     buildTerminal();
     buildOptions();
+
+    m_rxFlushTimer = new QTimer(this);
+    m_rxFlushTimer->setInterval(kRxFlushMs);
+    connect(m_rxFlushTimer, &QTimer::timeout, this, &SerialAssistant::flushRx);
 }
 
 SerialAssistant::~SerialAssistant()
@@ -196,10 +204,38 @@ void SerialAssistant::appendRx(const QByteArray &chunk)
     if (chunk.isEmpty())
         return;
     m_rxBytes += quint64(chunk.size());
-    bumpCounters();
+
+    // 只有「串口助手」视图真正可见时才渲染：控制台模式下波形二进制流很大，
+    // 逐块渲染会淹没 GUI 线程（开始上传后直接卡死）。不可见时仅计数。
+    if (!m_terminalPanel->isVisible())
+        return;
     if (m_pauseBox && m_pauseBox->isChecked())
         return;
-    appendDisplay(renderSerialBytes(chunk, hexDisplay()), false);
+
+    m_rxPending.append(chunk);
+    if (m_rxPending.size() > kMaxRxPending)
+        m_rxPending.remove(0, m_rxPending.size() - kMaxRxPending);   // 只保留最新
+    if (m_rxFlushTimer && !m_rxFlushTimer->isActive())
+        m_rxFlushTimer->start();
+}
+
+// 攒下的接收字节按节流一次性渲染，避免每来一块就 insertText + ensureCursorVisible。
+void SerialAssistant::flushRx()
+{
+    if (!m_rxPending.isEmpty()) {
+        const QByteArray batch = m_rxPending;
+        m_rxPending.clear();
+        appendDisplay(renderSerialBytes(batch, hexDisplay()), false);
+    } else if (m_rxFlushTimer) {
+        m_rxFlushTimer->stop();
+    }
+    bumpCounters();
+}
+
+void SerialAssistant::showEvent(QShowEvent *event)
+{
+    QWidget::showEvent(event);
+    bumpCounters();                             // 从控制台切回来时刷新一次计数
 }
 
 void SerialAssistant::appendTx(const QByteArray &bytes)
@@ -269,6 +305,9 @@ void SerialAssistant::onSendClicked()
 
 void SerialAssistant::clearRx()
 {
+    m_rxPending.clear();
+    if (m_rxFlushTimer)
+        m_rxFlushTimer->stop();
     if (m_log)
         m_log->clear();
     m_rxBytes = 0;
@@ -277,6 +316,9 @@ void SerialAssistant::clearRx()
 
 void SerialAssistant::clearAll()
 {
+    m_rxPending.clear();
+    if (m_rxFlushTimer)
+        m_rxFlushTimer->stop();
     if (m_log)
         m_log->clear();
     m_rxBytes = 0;
