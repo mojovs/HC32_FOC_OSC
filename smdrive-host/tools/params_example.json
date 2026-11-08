@@ -1,0 +1,16 @@
+{
+  "format": "smdrive-param-profile",
+  "version": 1,
+  "params": [
+    { "index": 1, "name": "SPEED_PI_P", "value": 0.05 },
+    { "index": 2, "name": "SPEED_PI_I", "value": 0.002 },
+    { "index": 3, "name": "R_0_0", "value": 0.01 },
+    { "index": 4, "name": "R_1_1", "value": 0.01 },
+    { "index": 5, "name": "Q_0_0", "value": 100.0 },
+    { "index": 6, "name": "Q_1_1", "value": 100.0 },
+    { "index": 7, "name": "Q_2_2", "value": 1.0 },
+    { "index": 8, "name": "Q_3_3", "value": 1.0 },
+    { "index": 9, "name": "flux", "value": 0.02 },
+    { "index": 10, "name": "spare", "value": 0.0 }
+  ]
+}
