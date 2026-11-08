@@ -1,0 +1,6 @@
+r
+h
+loadfile ..\Debug\usb_dev_cdc.hex
+r
+g
+q

@@ -1,0 +1,85 @@
+# HC32F460 FOC 工程（固件 + PC 上位机）统一忽略规则
+# 目录约定：foc/（固件）、smdrive-host/（上位机）、其余为外设测试例程
+
+# ===================== 固件构建产物 =====================
+# ---- MDK / Keil ----
+MDK/output/
+*.uvguix.*
+*.scvd
+*.bak
+*.dep
+*.lnp
+JLinkLog*.log
+JLinkSettings.ini
+*.build_log.htm
+*.htm
+
+# ---- IAR EWARM ----
+EWARM/settings/
+EWARM/*/Obj/
+EWARM/*/List/
+EWARM/*/Exe/
+*.ewt
+*.ewd
+*.cspy.bat
+*.cspy.ps1
+
+# ---- GCC ----
+GCC/build/
+GCC/.settings/
+*.elf
+*.lst
+
+# ===================== 通用构建/临时产物 =====================
+build/
+build-*/
+dist/
+installer/
+Debug/
+Release/
+Objects/
+Listings/
+*.o
+*.d
+*.crf
+*.axf
+*.map
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.i
+*.su
+*.log
+*.zip
+*.7z
+*.rar
+*.tmp
+
+# ===================== 上位机（Qt）产物 =====================
+*.dll
+*.exe
+*.lib
+*.a
+.qmake.stash
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+CMakeLists.txt.user*
+*.pro.user*
+.qtc_clangd/
+*.qmlc
+*.jsc
+
+# ===================== 留档/回放数据 =====================
+*.bin
+*.csv
+*.json.user
+
+# ===================== IDE / 系统 =====================
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*~
