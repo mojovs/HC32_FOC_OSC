@@ -1,5 +1,7 @@
-// 通道/参数元数据单一维护点（计划书 §5.2）。名称与顺序取自固件
-// user/pc_communication_init.c，改固件时同步改这里。
+// 通道/参数元数据单一维护点（计划书 §5.2）。
+// 波形通道只按「序号 + 数值类型」显示（CHn float / CHn int32）：上位机不知道
+// 每路接什么信号，slot 到信号的对应关系由固件 foc/source/pc_communication_init.c 决定，
+// 改固件索引只需保持此处的序号与类型一致。参数/数据表仍保留语义名。
 #pragma once
 
 #include <QColor>
@@ -10,7 +12,7 @@
 namespace smd {
 
 struct ChannelInfo {
-    QString name;        // 图例短名
+    QString name;        // 显示短名：CHn + 数值类型（float / int32）
     QString desc;        // 说明
     QColor color;
     bool isInt;          // 整型波形（固件 int_wave_data_*）
@@ -26,20 +28,20 @@ struct ParamInfo {
     double defaultValue;
 };
 
-// 6 路浮点波形 + 4 路整型波形
+// 10 路波形：序号 0..5 为浮点(float)，6..9 为整型(int32)。颜色与默认可见性在此维护。
 inline const std::array<ChannelInfo, 10> &channelTable()
 {
     static const std::array<ChannelInfo, 10> table = {{
-        {"theta",   "电角度 theta",              QColor(0xE6, 0x39, 0x46), false, true},
-        {"EKF[0]",  "EKF 状态 0",                QColor(0xF7, 0x8C, 0x6B), false, true},
-        {"EKF[1]",  "EKF 状态 1",                QColor(0xF9, 0xC7, 0x4F), false, false},
-        {"EKF[2]",  "EKF 状态 2",                QColor(0x2A, 0x9D, 0x8F), false, false},
-        {"Ibeta",   "β 轴电流 Ibeta",            QColor(0x1D, 0x35, 0x57), false, true},
-        {"Iq_ref",  "q 轴电流给定 Iq_ref",       QColor(0x8E, 0x7C, 0xC3), false, true},
-        {"ia_test", "A 相电流原始值 ia_test",    QColor(0xFF, 0x9F, 0x1C), true,  true},
-        {"intw2",   "整型波形 2 (int_test2)",    QColor(0x45, 0x7B, 0x9D), true,  false},
-        {"intw3",   "整型波形 3 (int_test3)",    QColor(0xA1, 0x6E, 0x3C), true,  false},
-        {"intw4",   "整型波形 4 (int_test4)",    QColor(0x6A, 0x99, 0x4D), true,  false},
+        {"CH0 float", "浮点波形通道 0",          QColor(0xE6, 0x39, 0x46), false, true},
+        {"CH1 float", "浮点波形通道 1",          QColor(0xF7, 0x8C, 0x6B), false, true},
+        {"CH2 float", "浮点波形通道 2",          QColor(0xF9, 0xC7, 0x4F), false, false},
+        {"CH3 float", "浮点波形通道 3",          QColor(0x2A, 0x9D, 0x8F), false, false},
+        {"CH4 float", "浮点波形通道 4",          QColor(0x1D, 0x35, 0x57), false, true},
+        {"CH5 float", "浮点波形通道 5",          QColor(0x8E, 0x7C, 0xC3), false, true},
+        {"CH6 int32", "整型波形通道 6",          QColor(0xFF, 0x9F, 0x1C), true,  true},
+        {"CH7 int32", "整型波形通道 7",          QColor(0x45, 0x7B, 0x9D), true,  false},
+        {"CH8 int32", "整型波形通道 8",          QColor(0xA1, 0x6E, 0x3C), true,  false},
+        {"CH9 int32", "整型波形通道 9",          QColor(0x6A, 0x99, 0x4D), true,  false},
     }};
     return table;
 }
