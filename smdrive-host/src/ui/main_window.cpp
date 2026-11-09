@@ -39,6 +39,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QStringList>
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolButton>
@@ -278,9 +279,46 @@ void MainWindow::buildUi()
     });
     m_cursorAct = new QAction(QStringLiteral("光标测量"), this);
     m_cursorAct->setCheckable(true);
-    m_cursorAct->setStatusTip(QStringLiteral("X1/X2 竖线测时间、Y1/Y2 横线测数值，读出 ΔX / ΔY；"
-                                             "打开后画面冻结，拖动光标线移动"));
+    m_cursorAct->setStatusTip(QStringLiteral("X1/X2 两条竖线标时间；在各「测量通道」的波形上取点，"
+                                             "读出该点的值与 ΔV。打开后画面冻结，拖动竖线移动"));
     connect(m_cursorAct, &QAction::toggled, this, [this](bool on) { m_wave->setCursorMeasure(on); });
+
+    // 测量通道（多选）：勾中的通道会在 X1/X2 处读出波形值
+    auto *measChanRow = new QHBoxLayout();
+    measChanRow->addWidget(new QLabel(QStringLiteral("测量通道"), dispBox));
+    auto *measChanBtn = new QToolButton(dispBox);
+    measChanBtn->setPopupMode(QToolButton::InstantPopup);
+    measChanBtn->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    measChanBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    auto *measMenu = new QMenu(measChanBtn);
+    auto updateMeasLabel = [measChanBtn, measMenu]() {
+        QStringList sel;
+        int total = 0;
+        for (QAction *a : measMenu->actions()) {
+            ++total;
+            if (a->isChecked())
+                sel << QStringLiteral("CH%1").arg(a->data().toInt());
+        }
+        measChanBtn->setText(sel.isEmpty() ? QStringLiteral("无")
+                             : (sel.size() == total) ? QStringLiteral("全部")
+                                                     : sel.join(QLatin1Char(',')));
+    };
+    const auto &chanMeta = channelTable();
+    for (int c = 0; c < int(chanMeta.size()); ++c) {
+        QAction *a = measMenu->addAction(chanMeta[size_t(c)].name);
+        a->setCheckable(true);
+        a->setData(c);
+        a->setChecked(m_wave->channelMeasured(c));
+        connect(a, &QAction::toggled, this, [this, c, updateMeasLabel](bool on) {
+            m_wave->setChannelMeasured(c, on);
+            updateMeasLabel();
+        });
+    }
+    measChanBtn->setMenu(measMenu);
+    updateMeasLabel();
+    measChanRow->addWidget(measChanBtn, 1);
+    dispLayout->addLayout(measChanRow);
+
     auto *resetViewBtn = new QPushButton(QStringLiteral("复位视图/偏移"), dispBox);
     connect(resetViewBtn, &QPushButton::clicked, this, [this] { m_wave->resetView(); });
     auto *dispBtnRow = new QHBoxLayout();

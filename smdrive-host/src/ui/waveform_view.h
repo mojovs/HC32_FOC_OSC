@@ -36,9 +36,11 @@ public:
     /// 暂停 = 冻结视窗（右端不再跟随最新样本）；恢复后回到实时跟随。
     void setPaused(bool on);
     bool paused() const { return m_paused; }
-    /// 示波器式双光标测量：X1/X2 竖线（时间）与 Y1/Y2 横线（数值），读出 ΔX / ΔY。
+    /// 示波器式双光标测量：X1/X2 竖线标时间，并在各「测量通道」的波形上取点读出 V 与 ΔV。
     void setCursorMeasure(bool on);
     bool cursorMeasure() const { return m_measure; }
+    void setChannelMeasured(int channel, bool on);
+    bool channelMeasured(int channel) const;
     void resetView();                     // 回到实时跟随 + 自动量程
     void markDataAppended();              // 由 UI 定时器调用，触发重绘排队
 
@@ -63,8 +65,9 @@ private:
     void drawLegend(QPainter &p, const QRectF &plot) const;
     void drawCursor(QPainter &p, const QRectF &plot, double startSample, double endSample) const;
     void drawMeasureCursors(QPainter &p, const QRectF &plot) const;
-    int nearestHandle(const QPointF &pos) const;      // 距离最近的光标手柄，-1 为无
-    void dragHandleTo(const QPointF &pos);             // 把当前手柄拖到鼠标处
+    int nearestHandle(const QPointF &pos) const;      // 距离最近的 X 光标，-1 为无
+    void dragHandleTo(const QPointF &pos);             // 把当前 X 光标拖到鼠标处
+    double sampleValueAt(int channel, double sampleAbs) const;   // 通道在样本处的显示值，无数据为 NaN
     void syncScrollBar(double startSample, double endSample);   // 视窗 -> 底部进度条
     QRectF plotRect() const;
 
@@ -91,8 +94,8 @@ private:
     bool m_measure = false;
     bool m_cursorsInit = false;           // 打开测量时按当前视窗摆一次光标
     double m_mx1 = 0.0, m_mx2 = 0.0;      // X 光标位置（绝对样本号）
-    double m_my1 = 0.0, m_my2 = 0.0;      // Y 光标位置（显示值，含增益偏移）
-    int m_activeHandle = -1;              // 0=X1 1=X2 2=Y1 3=Y2
+    bool m_measured[10] = {true, true, false, false, true, true, true, false, false, false};
+    int m_activeHandle = -1;              // 0=X1 1=X2
     double m_lastStart = 0.0, m_lastEnd = 1.0;    // 最近一次绘制的坐标映射（供鼠标换算）
     double m_lastYmin = -1.0, m_lastYmax = 1.0;
 };
