@@ -151,6 +151,8 @@ void WaveformView::setCursorMeasure(bool on)
     m_measure = on;
     m_activeHandle = -1;
     m_hoverHandle = -1;
+    m_dragReadout = false;
+    m_readoutHover = false;
     if (on) {
         m_cursorsInit = false;     // 打开时按当前视窗重新摆放两条 X 光标
         setPaused(true);           // 光标测量在冻结画面上做，避免光标随数据漂走
@@ -354,7 +356,7 @@ void WaveformView::paintEvent(QPaintEvent *)
     if (total == 0) {
         p.setPen(kAxis);
         p.drawText(plot, Qt::AlignCenter,
-                   QStringLiteral("等待数据…（先打开串口 → 认证 → 开始上传）"));
+                   QStringLiteral("等待数据…（先打开串口 → 认证 → 显示波形）"));
     }
 
     syncScrollBar(startSample, endSample);
@@ -647,21 +649,36 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
     const int rowH = fm.height() + 2 * padY;
     const int titleH = fm.height() + 8;
     const int tableW = colW[0] + colW[1] + colW[2] + colW[3];
-    const QRectF win(plot.right() - tableW - 8, plot.top() + 8, tableW,
-                     titleH + rowH * int(rows.size()));
+    const int tableH = titleH + rowH * int(rows.size());
+    QRectF win;
+    if (m_readoutPos.x() >= 0.0) {                       // 用户拖过：用记住的位置，并夹在绘图区内
+        win = QRectF(m_readoutPos, QSizeF(tableW, tableH));
+        const double maxX = std::max(plot.left(), plot.right() - tableW);
+        const double maxY = std::max(plot.top(), plot.bottom() - tableH);
+        win.moveLeft(std::clamp(win.left(), plot.left(), maxX));
+        win.moveTop(std::clamp(win.top(), plot.top(), maxY));
+    } else {                                             // 默认停在右上角
+        win = QRectF(plot.right() - tableW - 8, plot.top() + 8, tableW, tableH);
+    }
+    m_readoutRect = win;                                 // 记录，供鼠标命中测试
 
-    // 背景 + 标题栏 + 外框
+    // 背景 + 标题栏 + 外框（悬停时标题栏提亮，提示可拖）
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(0x10, 0x13, 0x17, 238));
     p.drawRect(win);
-    p.setBrush(QColor(0x22, 0x27, 0x2E));
+    p.setBrush(m_readoutHover ? QColor(0x2E, 0x35, 0x3F) : QColor(0x22, 0x27, 0x2E));
     p.drawRect(QRectF(win.left(), win.top(), win.width(), titleH));
     p.setPen(QColor(0x3C, 0x43, 0x4C));
     p.setBrush(Qt::NoBrush);
     p.drawRect(win);
     p.setPen(QColor(0xD5, 0xDA, 0xE0));
-    p.drawText(QRectF(win.left() + 8, win.top(), win.width() - 16, titleH),
+    p.drawText(QRectF(win.left() + 8, win.top(), win.width() - 30, titleH),
                Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("测量（光标）"));
+    // 标题栏右侧三点抓取纹，提示整表可拖动
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0x76, 0x7E, 0x88));
+    for (int i = 0; i < 3; ++i)
+        p.drawEllipse(QPointF(win.right() - 10 - i * 6, win.top() + titleH / 2.0), 1.6, 1.6);
 
     // 网格线
     const double gtop = win.top() + titleH;
@@ -758,12 +775,19 @@ void WaveformView::mousePressEvent(QMouseEvent *e)
 {
     if (e->button() != Qt::LeftButton)
         return;
-    if (m_measure) {                            // 测量模式：左键拖动光标，不平移波形
-        m_activeHandle = nearestHandle(QPointF(e->pos()));
+    if (m_measure) {                            // 测量模式：拖动读数表或光标，不平移波形
+        const QPointF pos(e->pos());
+        if (m_readoutRect.contains(pos)) {      // 点在读数表上：按住拖动整张表
+            m_dragReadout = true;
+            m_readoutGrab = pos - m_readoutRect.topLeft();
+            setCursor(Qt::SizeAllCursor);
+            return;
+        }
+        m_activeHandle = nearestHandle(pos);
         if (m_activeHandle >= 0) {
             setCursor(m_activeHandle <= 1 ? Qt::SizeHorCursor : Qt::SizeVerCursor);
             m_hoverHandle = m_activeHandle;
-            dragHandleTo(QPointF(e->pos()));
+            dragHandleTo(pos);
             update();
         }
         return;
@@ -778,14 +802,33 @@ void WaveformView::mousePressEvent(QMouseEvent *e)
 
 void WaveformView::mouseMoveEvent(QMouseEvent *e)
 {
-    if (m_measure) {                            // 测量模式：只移动被抓住的光标
-        if (m_activeHandle >= 0) {
-            dragHandleTo(QPointF(e->pos()));
+    if (m_measure) {                            // 测量模式：拖动读数表 / 移动光标
+        const QPointF pos(e->pos());
+        if (m_dragReadout) {                    // 拖动读数表（位置在 paint 里夹进绘图区）
+            m_readoutPos = pos - m_readoutGrab;
             update();
             return;
         }
-        // 未拖动时做悬停探测：靠近某条光标线就高亮它并换成对应的拖动指针
-        const int h = nearestHandle(QPointF(e->pos()));
+        if (m_activeHandle >= 0) {
+            dragHandleTo(pos);
+            update();
+            return;
+        }
+        // 悬停探测：读数表优先，其次光标线
+        const bool overTable = m_readoutRect.contains(pos);
+        if (overTable != m_readoutHover) {
+            m_readoutHover = overTable;
+            update();
+        }
+        if (overTable) {
+            if (m_hoverHandle != -1) {
+                m_hoverHandle = -1;
+                update();
+            }
+            setCursor(Qt::SizeAllCursor);       // 整表可拖
+            return;
+        }
+        const int h = nearestHandle(pos);
         if (h != m_hoverHandle) {
             m_hoverHandle = h;
             update();
@@ -814,9 +857,14 @@ void WaveformView::mouseReleaseEvent(QMouseEvent *e)
 {
     m_dragging = false;
     m_activeHandle = -1;
+    m_dragReadout = false;
     if (m_measure) {
-        m_hoverHandle = nearestHandle(QPointF(e->pos()));   // 松手后按当前鼠标位置重新判定悬停
-        if (m_hoverHandle == 0 || m_hoverHandle == 1)
+        const QPointF pos(e->pos());
+        m_readoutHover = m_readoutRect.contains(pos);
+        m_hoverHandle = m_readoutHover ? -1 : nearestHandle(pos);
+        if (m_readoutHover)
+            setCursor(Qt::SizeAllCursor);
+        else if (m_hoverHandle == 0 || m_hoverHandle == 1)
             setCursor(Qt::SizeHorCursor);
         else if (m_hoverHandle == 2 || m_hoverHandle == 3)
             setCursor(Qt::SizeVerCursor);
@@ -828,8 +876,13 @@ void WaveformView::mouseReleaseEvent(QMouseEvent *e)
     update();
 }
 
-void WaveformView::mouseDoubleClickEvent(QMouseEvent *)
+void WaveformView::mouseDoubleClickEvent(QMouseEvent *e)
 {
+    if (m_measure && m_readoutRect.contains(QPointF(e->pos()))) {
+        m_readoutPos = QPointF(-1.0, -1.0);     // 读数表复位到右上角
+        update();
+        return;
+    }
     resetView();
 }
 
@@ -837,6 +890,7 @@ void WaveformView::leaveEvent(QEvent *)
 {
     m_cursorX = -1;
     m_hoverHandle = -1;
+    m_readoutHover = false;
     unsetCursor();
     update();
 }

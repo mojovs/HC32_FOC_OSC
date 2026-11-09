@@ -42,6 +42,7 @@
 #include <QStringList>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -334,8 +335,8 @@ void MainWindow::buildUi()
     m_authAct->setStatusTip(QStringLiteral("发送认证帧 55 55 01 AA AA，并读取驱动器序列号"));
     connect(m_authAct, &QAction::triggered, this, &MainWindow::onAuthClicked);
 
-    m_uploadAct = new QAction(QStringLiteral("开始上传"), this);
-    m_uploadAct->setStatusTip(QStringLiteral("发送 03 命令，请求驱动器开始上传采样数据"));
+    m_uploadAct = new QAction(QStringLiteral("显示波形"), this);
+    m_uploadAct->setStatusTip(QStringLiteral("发送 03 命令，请求驱动器开始上传采样数据并实时显示波形"));
     connect(m_uploadAct, &QAction::triggered, this, &MainWindow::onStartUploadClicked);
 
     m_startAct = new QAction(QStringLiteral("启动"), this);
@@ -486,11 +487,11 @@ void MainWindow::buildUi()
 }
 
 // ---------------------------------------------------------------------------
-// 顶部菜单栏：把低频操作从右栏搬上来。
+// 顶部：菜单栏 + 运行工具栏。低频文件操作留在「文件」菜单，运行操作上工具栏。
 //   文件：回放 / 记录 / 参数方案 / 退出
-//   设备：认证 / 开始上传 / 启动(停止) / 加速 / 减速
+//   工具栏：认证 / 显示波形 / 启动(停止) / 加速 / 减速
 //   帮助：关于
-// 这些 QAction 若在别处也有按钮，状态会自动同步（此处已无面板按钮）。
+// 这些 QAction 只在工具栏出现（不再进菜单），状态由 QAction 自身维护。
 // ---------------------------------------------------------------------------
 void MainWindow::buildMenus()
 {
@@ -527,18 +528,23 @@ void MainWindow::buildMenus()
     connect(m_quitAct, &QAction::triggered, this, &QWidget::close);
     fileMenu->addAction(m_quitAct);
 
-    QMenu *devMenu = menuBar()->addMenu(QStringLiteral("设备(&D)"));
+    // 运行操作：顶部工具栏（是这些操作的唯一入口；快捷键仍随 QAction 生效）
     m_authAct->setShortcut(QKeySequence(QStringLiteral("F5")));
     m_uploadAct->setShortcut(QKeySequence(QStringLiteral("F6")));
     m_startAct->setShortcut(QKeySequence(QStringLiteral("F7")));
     m_accelAct->setShortcut(QKeySequence(QStringLiteral("F8")));
     m_decelAct->setShortcut(QKeySequence(QStringLiteral("F9")));
-    devMenu->addAction(m_authAct);
-    devMenu->addAction(m_uploadAct);
-    devMenu->addSeparator();
-    devMenu->addAction(m_startAct);
-    devMenu->addAction(m_accelAct);
-    devMenu->addAction(m_decelAct);
+    auto *runBar = addToolBar(QStringLiteral("运行"));
+    runBar->setObjectName(QStringLiteral("runToolBar"));
+    runBar->setMovable(false);
+    runBar->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    runBar->addAction(m_authAct);
+    runBar->addSeparator();
+    runBar->addAction(m_uploadAct);
+    runBar->addSeparator();
+    runBar->addAction(m_startAct);
+    runBar->addAction(m_accelAct);
+    runBar->addAction(m_decelAct);
 
     QMenu *helpMenu = menuBar()->addMenu(QStringLiteral("帮助(&H)"));
     m_aboutAct = new QAction(QStringLiteral("关于 SMotorDrive 上位机"), this);
@@ -556,7 +562,7 @@ void MainWindow::onAbout()
             "替代原厂上位机的调试/标定工具，按与其驱动器固件配套的串口协议实现，"
             "不含联网授权与 MySQL 依赖。<br><br>"
             "<b>下行</b>：<code>55 55 CMD [payload] AA AA</code><br>"
-            "01 认证 · 03 开始上传 · 06 参数 · 07 启动 · 08 加速 · 09 减速 · 0A 停止<br>"
+            "01 认证 · 03 显示波形(协议:开始上传) · 06 参数 · 07 启动 · 08 加速 · 09 减速 · 0A 停止<br>"
             "<b>上行</b>：<code>55 55 02 + 序列号</code> · <code>55 55 04 + 1710B 数据</code>")
             .arg(QApplication::applicationVersion(), QStringLiteral(QT_VERSION_STR)));
 }

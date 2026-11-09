@@ -37,7 +37,7 @@ public:
     void setPaused(bool on);
     bool paused() const { return m_paused; }
     /// 示波器式光标测量：X1/X2 竖线标时间、Y1/Y2 横线标数值，并在各「测量通道」的
-    /// 波形上取点读出 ΔV；右上角输出一张测量表格。
+    /// 波形上取点读出 ΔV；右上角输出一张测量表格（可在波形区内拖动、双击标题复位）。
     void setCursorMeasure(bool on);
     bool cursorMeasure() const { return m_measure; }
     void setChannelMeasured(int channel, bool on);
@@ -101,6 +101,13 @@ private:
     int m_hoverHandle = -1;               // 鼠标悬停靠近的光标（高亮提示）
     double m_lastStart = 0.0, m_lastEnd = 1.0;    // 最近一次绘制的坐标映射（供鼠标换算）
     double m_lastYmin = -1.0, m_lastYmax = 1.0;
+
+    // 测量读数表（在波形区内可拖动；x<0 表示仍在默认位置即右上角）
+    QPointF m_readoutPos{-1.0, -1.0};     // 表格左上角
+    bool m_dragReadout = false;           // 正在拖动读数表
+    QPointF m_readoutGrab;                // 拖动时鼠标相对表格左上角的偏移
+    mutable QRectF m_readoutRect;         // 最近一次绘制的读数表矩形（命中测试用）
+    bool m_readoutHover = false;          // 鼠标是否悬停在读数表上（提示可拖）
 };
 
 } // namespace smd

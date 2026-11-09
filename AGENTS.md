@@ -51,7 +51,7 @@ packaging\make_installer.bat  :: 出安装包               -> installer\*.exe
 - **foc 应用源码统一 GBK/cp936**：`foc/source/` 的 `.c/.h` 全部为 GBK；Keil 用默认的 GB2312/ANSI 即正常，不要切 UTF-8。编辑保持 GBK，新注释也用 GBK（写成 UTF-8 会显示乱码）。注意 `board_config.c`、`main.c`、`cdc_data_process.c/.h` 的中文注释在移植时已被破坏（现为 `?`），git 里无完好版本，需要时按代码重写。
 - 固件应用代码只放 `foc/source/`，不要改厂商 DDL；三套工具的工程文件改动要同步（MDK/EWARM/GCC）。
 - 上位机：协议常量与帧结构集中在 `src/protocol/frame.h`，通道与参数元数据只维护 `src/app/channel_table.h`（改固件索引要同步这里）。
-- 上位机界面：**低频操作放顶部菜单栏**（`main_window.cpp::buildMenus()`：文件＝回放/记录/参数方案/退出，设备＝认证/上传/启停/加减速，帮助＝关于），右栏只留高频调控项（连接/显示/波形通道/参数·数据表）。给功能加按钮前先判断是否该进菜单——不要双入口。
+- 上位机界面：**顶部＝菜单栏＋运行工具栏**（`main_window.cpp::buildMenus()`：菜单栏＝文件（回放/记录/参数方案/退出）＋帮助（关于）；运行工具栏＝认证/显示波形(F6)/启停/加减速，其中「显示波形」即协议 03「开始上传」），右栏只留高频调控项（连接/显示/波形通道/参数·数据表）。给功能加按钮前先判断是否该进菜单——不要双入口。
 - 上位机右栏顶部有 **「控制台 / 串口助手」模式开关**（`main_window.cpp::onModeChanged`）：切到串口助手时左主区换成原始串口终端（`SerialAssistant`，类似 XCOM），右栏换成串口参数；收发编解码纯逻辑在 `src/app/serial_text_codec.*`（可单测），控件不直接碰串口，原始字节经 `ITransport::bytesReceived` 中转。终端的工具条有状态圆点（绿=已连接/红=已断开）、`打开/断开串口`（发 `requestToggleConnection`，主窗口复用 `onTogglePort`）与 `清除接收`/`清空`。串口助手模式下打开串口**不自动补发认证帧**。
 - 协议两端对齐：固件的 `source/pc_communication*.c` 与上位机的 `protocol/` 是同一套线协议，改一侧必须改另一侧。
 - 命名约定：文档与代码里用「原工程」指代原厂上位机及其厂商名，不出现原始品牌字样。
