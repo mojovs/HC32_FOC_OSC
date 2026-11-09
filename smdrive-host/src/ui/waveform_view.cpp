@@ -34,7 +34,9 @@ const QColor kAxis(0x8A, 0x93, 0x9E);
 // 测量光标配色
 const QColor kCurX1(0xFF, 0xC1, 0x07);   // X1 金
 const QColor kCurX2(0xFF, 0x70, 0x43);   // X2 橙红
-const QColor kCurDx(0xFF, 0xD5, 0x4F);   // ΔX 亮金
+const QColor kCurY1(0x4F, 0xC3, 0xF7);   // Y1 天蓝
+const QColor kCurY2(0x69, 0xF0, 0xAE);   // Y2 青绿
+const QColor kCurDx(0xFF, 0xD5, 0x4F);   // Δ 亮金
 const QColor kReadHead(0x9A, 0xA0, 0xA6); // 读数框表头灰
 
 /// 深色（如深蓝）在深色底上几乎看不见，用于文字时提亮一档
@@ -335,6 +337,8 @@ void WaveformView::paintEvent(QPaintEvent *)
             const double span = endSample - startSample;
             m_mx1 = startSample + span * 0.25;
             m_mx2 = startSample + span * 0.75;
+            m_my1 = ymin + (ymax - ymin) * 0.35;
+            m_my2 = ymin + (ymax - ymin) * 0.65;
             m_cursorsInit = true;
         }
         if (m_cursorsInit)
@@ -491,64 +495,92 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
     };
 
     const double x1 = xOf(m_mx1), x2 = xOf(m_mx2);
-    const double xs[2] = {x1, x2};
-    const QColor xc[2] = {kCurX1, kCurX2};
+    const double y1 = yOf(m_my1), y2 = yOf(m_my2);
 
     // ---- 两条竖线 X1 / X2 ----
-    for (int i = 0; i < 2; ++i) {
-        if (xs[i] < plot.left() - 0.5 || xs[i] > plot.right() + 0.5)
-            continue;
-        QPen pen(xc[i]);
-        pen.setWidth(m_activeHandle == i ? 2 : 1);
-        pen.setStyle(Qt::DashLine);
-        p.setPen(pen);
-        p.drawLine(QPointF(xs[i], plot.top()), QPointF(xs[i], plot.bottom()));
-        p.setBrush(xc[i]);
-        p.setPen(Qt::NoPen);
-        p.drawRect(QRectF(xs[i] - 4, plot.top(), 8, 5));        // 顶部抓手
+    {
+        const double xs[2] = {x1, x2};
+        const QColor xc[2] = {kCurX1, kCurX2};
+        for (int i = 0; i < 2; ++i) {
+            if (xs[i] < plot.left() - 0.5 || xs[i] > plot.right() + 0.5)
+                continue;
+            QPen pen(xc[i]);
+            pen.setWidth(m_activeHandle == i ? 2 : 1);
+            pen.setStyle(Qt::DashLine);
+            p.setPen(pen);
+            p.drawLine(QPointF(xs[i], plot.top()), QPointF(xs[i], plot.bottom()));
+            p.setBrush(xc[i]);
+            p.setPen(Qt::NoPen);
+            p.drawRect(QRectF(xs[i] - 4, plot.top(), 8, 5));        // 顶部抓手
+        }
+    }
+    // ---- 两条横线 Y1 / Y2 ----
+    {
+        const double ys[2] = {y1, y2};
+        const QColor yc[2] = {kCurY1, kCurY2};
+        for (int i = 0; i < 2; ++i) {
+            if (ys[i] < plot.top() - 0.5 || ys[i] > plot.bottom() + 0.5)
+                continue;
+            QPen pen(yc[i]);
+            pen.setWidth(m_activeHandle == 2 + i ? 2 : 1);
+            pen.setStyle(Qt::DashLine);
+            p.setPen(pen);
+            p.drawLine(QPointF(plot.left(), ys[i]), QPointF(plot.right(), ys[i]));
+            p.setBrush(yc[i]);
+            p.setPen(Qt::NoPen);
+            p.drawRect(QRectF(plot.left(), ys[i] - 4, 5, 8));       // 左侧抓手
+        }
     }
 
     // ---- 各「测量通道」在 X1、X2 处的波形点（坐标点），两点连线即 ΔV ----
     const auto &meta = channelTable();
-    auto fmt = [](double v) -> QString {
-        if (std::isnan(v))
-            return QStringLiteral("--");
-        return QString::number(v, 'g', 5);
+    auto fmtN = [](double v) -> QString {
+        return std::isnan(v) ? QStringLiteral("--") : QString::number(v, 'g', 5);
     };
-    std::vector<std::pair<QString, QColor>> rows;   // 每行文本 + 颜色
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+
+    struct Cell { QString text; QColor color; };
+    struct Row { Cell c[4]; };
+    std::vector<Row> rows;
+
     const double dt = (m_mx2 - m_mx1) / rate;       // 秒
-    rows.emplace_back(QStringLiteral("X1  %1 s").arg(m_mx1 / rate, 0, 'f', 4), kCurX1);
-    rows.emplace_back(QStringLiteral("X2  %1 s").arg(m_mx2 / rate, 0, 'f', 4), kCurX2);
+    rows.push_back(Row{{Cell{QStringLiteral("项"), kReadHead},
+                        Cell{QStringLiteral("光标 1"), kReadHead},
+                        Cell{QStringLiteral("光标 2"), kReadHead},
+                        Cell{QStringLiteral("差值"), kReadHead}}});
     {
-        QString dx = QStringLiteral("ΔX  %1 s").arg(dt, 0, 'f', 4);
+        QString d = QString::number(dt, 'f', 4) + QStringLiteral("s");
         if (std::abs(dt) > 1e-9)
-            dx += QStringLiteral("   %1 Hz").arg(1.0 / std::abs(dt), 0, 'f', 1);
-        rows.emplace_back(dx, kCurDx);
+            d += QStringLiteral(" (%1Hz)").arg(1.0 / std::abs(dt), 0, 'f', 1);
+        rows.push_back(Row{{Cell{QStringLiteral("时间"), kReadHead},
+                            Cell{QString::number(m_mx1 / rate, 'f', 4) + QStringLiteral("s"), kCurX1},
+                            Cell{QString::number(m_mx2 / rate, 'f', 4) + QStringLiteral("s"), kCurX2},
+                            Cell{d, kCurDx}}});
     }
+    rows.push_back(Row{{Cell{QStringLiteral("Y 值"), kReadHead},
+                        Cell{fmtN(m_my1), kCurY1},
+                        Cell{fmtN(m_my2), kCurY2},
+                        Cell{fmtN(m_my2 - m_my1), kCurDx}}});
 
     bool anyChan = false;
     for (int c = 0; c < m_channelCount; ++c)
         anyChan = anyChan || m_measured[c];
     if (anyChan) {
-        rows.emplace_back(QStringLiteral("%1  %2  %3  %4")
-                              .arg(QStringLiteral("通道"), -6)
-                              .arg(QStringLiteral("@X1"), 9)
-                              .arg(QStringLiteral("@X2"), 9)
-                              .arg(QStringLiteral("ΔV"), 9),
-                          kReadHead);
+        rows.push_back(Row{{Cell{QStringLiteral("通道"), kReadHead},
+                            Cell{QStringLiteral("@X1"), kReadHead},
+                            Cell{QStringLiteral("@X2"), kReadHead},
+                            Cell{QStringLiteral("ΔV"), kReadHead}}});
     }
     for (int c = 0; c < m_channelCount; ++c) {
         if (!m_measured[c])
             continue;
         const double v1 = sampleValueAt(c, m_mx1);
         const double v2 = sampleValueAt(c, m_mx2);
-        const double dv = (std::isnan(v1) || std::isnan(v2))
-                              ? std::numeric_limits<double>::quiet_NaN() : (v2 - v1);
-        const QString cname = meta[size_t(c)].name.section(QLatin1Char(' '), 0, 0);
         const QColor col = readableText(meta[size_t(c)].color);
-        rows.emplace_back(QStringLiteral("%1  %2  %3  %4")
-                              .arg(cname, -6).arg(fmt(v1), 9).arg(fmt(v2), 9).arg(fmt(dv), 9),
-                          col);
+        rows.push_back(Row{{Cell{meta[size_t(c)].name.section(QLatin1Char(' '), 0, 0), col},
+                            Cell{fmtN(v1), col},
+                            Cell{fmtN(v2), col},
+                            Cell{(std::isnan(v1) || std::isnan(v2)) ? fmtN(nan) : fmtN(v2 - v1), col}}});
 
         // 在曲线上标出这两个坐标点，并用细虚线相连（纵向跨度就是 ΔV）
         if (!std::isnan(v1) && !std::isnan(v2)) {
@@ -565,27 +597,60 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
         }
     }
 
-    // ---- 读数框（右上角，等宽字体便于对齐；数值按通道配色）----
-    QFont boxFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    boxFont.setPointSizeF(8.0);
-    p.setFont(boxFont);
-    const QFontMetrics fm(boxFont);
-    int w = 0;
-    for (const auto &r : rows)
-        w = std::max(w, fm.horizontalAdvance(r.first));
-    w += 18;
-    const int lh = fm.height() + 1;
-    const QRectF box(plot.right() - w - 8, plot.top() + 8, w, lh * int(rows.size()) + 10);
+    // ---- 读数表（右上角，PSpice 光标读数窗样式，等宽字体对齐；数值按来源配色）----
+    QFont mono = QFontDatabase::systemFont(QFontDatabase::FixedFont);
+    mono.setPointSizeF(8.0);
+    p.setFont(mono);
+    const QFontMetrics fm(mono);
+    const int padX = 8, padY = 3;
+    int colW[4] = {0, 0, 0, 0};
+    for (const Row &r : rows)
+        for (int i = 0; i < 4; ++i)
+            colW[i] = std::max(colW[i], fm.horizontalAdvance(r.c[i].text));
+    for (int i = 0; i < 4; ++i)
+        colW[i] += 2 * padX;
+    const int rowH = fm.height() + 2 * padY;
+    const int titleH = fm.height() + 8;
+    const int tableW = colW[0] + colW[1] + colW[2] + colW[3];
+    const QRectF win(plot.right() - tableW - 8, plot.top() + 8, tableW,
+                     titleH + rowH * int(rows.size()));
+
+    // 背景 + 标题栏 + 外框
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(0, 0, 0, 190));
-    p.drawRoundedRect(box, 5, 5);
-    p.setPen(QPen(QColor(0x55, 0x5C, 0x66), 1));
+    p.setBrush(QColor(0x10, 0x13, 0x17, 238));
+    p.drawRect(win);
+    p.setBrush(QColor(0x22, 0x27, 0x2E));
+    p.drawRect(QRectF(win.left(), win.top(), win.width(), titleH));
+    p.setPen(QColor(0x3C, 0x43, 0x4C));
     p.setBrush(Qt::NoBrush);
-    p.drawRoundedRect(box, 5, 5);
-    for (size_t i = 0; i < rows.size(); ++i) {
-        p.setPen(rows[i].second);
-        p.drawText(QRectF(box.left() + 9, box.top() + 5 + lh * int(i), w - 18, lh),
-                   Qt::AlignLeft | Qt::AlignVCenter, rows[i].first);
+    p.drawRect(win);
+    p.setPen(QColor(0xD5, 0xDA, 0xE0));
+    p.drawText(QRectF(win.left() + 8, win.top(), win.width() - 16, titleH),
+               Qt::AlignLeft | Qt::AlignVCenter, QStringLiteral("测量（光标）"));
+
+    // 网格线
+    const double gtop = win.top() + titleH;
+    p.setPen(QColor(0x30, 0x36, 0x3E));
+    for (size_t i = 0; i <= rows.size(); ++i) {
+        const double y = gtop + rowH * double(i);
+        p.drawLine(QPointF(win.left(), y), QPointF(win.right(), y));
+    }
+    double xcol = win.left();
+    for (int i = 0; i < 4; ++i) {
+        p.drawLine(QPointF(xcol, gtop), QPointF(xcol, win.bottom()));
+        xcol += colW[i];
+    }
+    p.drawLine(QPointF(win.right() - 0.5, gtop), QPointF(win.right() - 0.5, win.bottom()));
+
+    // 单元格文字
+    for (size_t r = 0; r < rows.size(); ++r) {
+        double x = win.left();
+        for (int i = 0; i < 4; ++i) {
+            p.setPen(rows[r].c[i].color);
+            p.drawText(QRectF(x + padX, gtop + rowH * double(r) + padY, colW[i] - 2 * padX, fm.height()),
+                       Qt::AlignLeft | Qt::AlignVCenter, rows[r].c[i].text);
+            x += colW[i];
+        }
     }
 }
 
@@ -593,28 +658,42 @@ int WaveformView::nearestHandle(const QPointF &pos) const
 {
     const QRectF plot = plotRect();
     const double span = std::max(1e-9, m_lastEnd - m_lastStart);
+    const double yRange = std::max(1e-12, m_lastYmax - m_lastYmin);
     const double x1 = plot.left() + (m_mx1 - m_lastStart) / span * plot.width();
     const double x2 = plot.left() + (m_mx2 - m_lastStart) / span * plot.width();
+    const double y1 = plot.bottom() - (m_my1 - m_lastYmin) / yRange * plot.height();
+    const double y2 = plot.bottom() - (m_my2 - m_lastYmin) / yRange * plot.height();
 
-    if (pos.y() < plot.top() || pos.y() > plot.bottom())
-        return -1;
-    const double d1 = std::abs(pos.x() - x1);
-    const double d2 = std::abs(pos.x() - x2);
-    if (std::min(d1, d2) > 14.0)                         // 抓取半径（像素）
-        return -1;
-    return d1 <= d2 ? 0 : 1;
+    int best = -1;
+    double bestD = 14.0;                                 // 抓取半径（像素）
+    if (pos.y() >= plot.top() && pos.y() <= plot.bottom()) {
+        if (std::abs(pos.x() - x1) < bestD) { bestD = std::abs(pos.x() - x1); best = 0; }
+        if (std::abs(pos.x() - x2) < bestD) { bestD = std::abs(pos.x() - x2); best = 1; }
+    }
+    if (pos.x() >= plot.left() && pos.x() <= plot.right()) {
+        if (std::abs(pos.y() - y1) < bestD) { bestD = std::abs(pos.y() - y1); best = 2; }
+        if (std::abs(pos.y() - y2) < bestD) { bestD = std::abs(pos.y() - y2); best = 3; }
+    }
+    return best;
 }
 
 void WaveformView::dragHandleTo(const QPointF &pos)
 {
     const QRectF plot = plotRect();
     const double span = std::max(1e-9, m_lastEnd - m_lastStart);
+    const double yRange = std::max(1e-12, m_lastYmax - m_lastYmin);
     const double cx = std::clamp(pos.x(), plot.left(), plot.right());
+    const double cy = std::clamp(pos.y(), plot.top(), plot.bottom());
     const double sample = m_lastStart + (cx - plot.left()) / std::max(1.0, plot.width()) * span;
-    if (m_activeHandle == 0)
-        m_mx1 = sample;
-    else if (m_activeHandle == 1)
-        m_mx2 = sample;
+    const double value = m_lastYmin + (plot.bottom() - cy) / std::max(1.0, plot.height()) * yRange;
+
+    switch (m_activeHandle) {
+    case 0: m_mx1 = sample; break;
+    case 1: m_mx2 = sample; break;
+    case 2: m_my1 = value;  break;
+    case 3: m_my2 = value;  break;
+    default: break;
+    }
 }
 
 double WaveformView::sampleValueAt(int channel, double sampleAbs) const

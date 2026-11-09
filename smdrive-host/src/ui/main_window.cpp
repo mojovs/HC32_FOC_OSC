@@ -279,8 +279,8 @@ void MainWindow::buildUi()
     });
     m_cursorAct = new QAction(QStringLiteral("光标测量"), this);
     m_cursorAct->setCheckable(true);
-    m_cursorAct->setStatusTip(QStringLiteral("X1/X2 两条竖线标时间；在各「测量通道」的波形上取点，"
-                                             "读出该点的值与 ΔV。打开后画面冻结，拖动竖线移动"));
+    m_cursorAct->setStatusTip(QStringLiteral("X1/X2 竖线标时间、Y1/Y2 横线标数值；并在各「测量通道」的波形上"
+                                             "取点读出 ΔV。打开后画面冻结，右上角出测量表格，拖动光标线移动"));
     connect(m_cursorAct, &QAction::toggled, this, [this](bool on) { m_wave->setCursorMeasure(on); });
 
     // 测量通道（多选）：勾中的通道会在 X1/X2 处读出波形值
