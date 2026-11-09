@@ -638,19 +638,19 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
 
     const double dt = (m_mx2 - m_mx1) / rate;       // 秒
     rows.push_back(Row{{Cell{QStringLiteral("项"), kReadHead},
-                        Cell{QStringLiteral("光标 1"), kReadHead},
-                        Cell{QStringLiteral("光标 2"), kReadHead},
+                        Cell{QStringLiteral("光标 1 (X1)"), kReadHead},
+                        Cell{QStringLiteral("光标 2 (X2)"), kReadHead},
                         Cell{QStringLiteral("差值"), kReadHead}}});
     {
         QString d = QString::number(dt, 'f', 4) + QStringLiteral("s");
         if (std::abs(dt) > 1e-9)
             d += QStringLiteral(" (%1Hz)").arg(1.0 / std::abs(dt), 0, 'f', 1);
-        rows.push_back(Row{{Cell{QStringLiteral("时间"), kReadHead},
+        rows.push_back(Row{{Cell{QStringLiteral("时间 X"), kReadHead},
                             Cell{QString::number(m_mx1 / rate, 'f', 4) + QStringLiteral("s"), kCurX1},
                             Cell{QString::number(m_mx2 / rate, 'f', 4) + QStringLiteral("s"), kCurX2},
                             Cell{d, kCurDx}}});
     }
-    rows.push_back(Row{{Cell{QStringLiteral("Y 值"), kReadHead},
+    rows.push_back(Row{{Cell{QStringLiteral("数值 Y"), kReadHead},
                         Cell{fmtN(m_my1), kCurY1},
                         Cell{fmtN(m_my2), kCurY2},
                         Cell{fmtN(m_my2 - m_my1), kCurDx}}});
@@ -659,9 +659,10 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
     for (int c = 0; c < m_channelCount; ++c)
         anyChan = anyChan || m_measured[c];
     if (anyChan) {
-        rows.push_back(Row{{Cell{QStringLiteral("通道"), kReadHead},
-                            Cell{QStringLiteral("@X1"), kReadHead},
-                            Cell{QStringLiteral("@X2"), kReadHead},
+        // 列头直接带上该光标的时间，避免把“波形在 X1/X2 处的值”误当成光标自身的值
+        rows.push_back(Row{{Cell{QStringLiteral("各通道值"), kReadHead},
+                            Cell{QStringLiteral("X1=%1s").arg(m_mx1 / rate, 0, 'f', 4), kCurX1},
+                            Cell{QStringLiteral("X2=%1s").arg(m_mx2 / rate, 0, 'f', 4), kCurX2},
                             Cell{QStringLiteral("ΔV"), kReadHead}}});
     }
     for (int c = 0; c < m_channelCount; ++c) {
