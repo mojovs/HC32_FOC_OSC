@@ -23,6 +23,8 @@ constexpr int kTopMargin = 10;
 constexpr int kBottomMargin = 26;       // x 轴刻度区
 constexpr int kScrollHeight = 14;       // 底部时间进度条
 constexpr int kScrollGap = 4;
+constexpr int kXDiv = 10;               // 横轴格数（刻度与网格共用，数值更好读）
+constexpr int kYDiv = 8;                // 纵轴格数
 const QColor kBg(0x1B, 0x1E, 0x22);
 const QColor kPlotBg(0x11, 0x13, 0x16);
 const QColor kGrid(0x2E, 0x34, 0x3B);
@@ -258,9 +260,9 @@ void WaveformView::paintEvent(QPaintEvent *)
     QFont f = p.font();
     f.setPointSizeF(8.0);
     p.setFont(f);
-    for (int i = 0; i <= 4; ++i) {
-        const double v = ymin + (ymax - ymin) * i / 4.0;
-        const double y = plot.bottom() - plot.height() * i / 4.0;
+    for (int i = 0; i <= kYDiv; ++i) {
+        const double v = ymin + (ymax - ymin) * i / double(kYDiv);
+        const double y = plot.bottom() - plot.height() * i / double(kYDiv);
         p.drawText(QRectF(0, y - 9, kLeftMargin - 6, 18), Qt::AlignRight | Qt::AlignVCenter,
                    QString::number(v, 'g', 4));
     }
@@ -268,10 +270,10 @@ void WaveformView::paintEvent(QPaintEvent *)
     // ---- 横轴刻度（自数据开始采集起算的秒数，随视窗/拖动移动）----
     const double tStart = startSample / rate;
     const double tEnd   = endSample   / rate;
-    for (int i = 0; i <= 4; ++i) {
-        const double t = tStart + (tEnd - tStart) * i / 4.0;
-        const double x = plot.left() + plot.width() * i / 4.0;
-        p.drawText(QRectF(x - 44, plot.bottom() + 4, 88, 18), Qt::AlignCenter,
+    for (int i = 0; i <= kXDiv; ++i) {
+        const double t = tStart + (tEnd - tStart) * i / double(kXDiv);
+        const double x = plot.left() + plot.width() * i / double(kXDiv);
+        p.drawText(QRectF(x - 38, plot.bottom() + 4, 76, 18), Qt::AlignCenter,
                    QString::number(t, 'f', 3) + QStringLiteral(" s"));
     }
 
@@ -298,12 +300,12 @@ void WaveformView::drawGrid(QPainter &p, const QRectF &plot) const
     QPen pen(kGrid);
     pen.setWidth(1);
     p.setPen(pen);
-    for (int i = 0; i <= 8; ++i) {
-        const double x = plot.left() + plot.width() * i / 8.0;
+    for (int i = 0; i <= kXDiv; ++i) {
+        const double x = plot.left() + plot.width() * i / double(kXDiv);
         p.drawLine(QPointF(x, plot.top()), QPointF(x, plot.bottom()));
     }
-    for (int i = 0; i <= 4; ++i) {
-        const double y = plot.top() + plot.height() * i / 4.0;
+    for (int i = 0; i <= kYDiv; ++i) {
+        const double y = plot.top() + plot.height() * i / double(kYDiv);
         p.drawLine(QPointF(plot.left(), y), QPointF(plot.right(), y));
     }
     p.setPen(QPen(kAxis, 1));
