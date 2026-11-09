@@ -31,11 +31,11 @@ const QColor kBg(0x1B, 0x1E, 0x22);
 const QColor kPlotBg(0x11, 0x13, 0x16);
 const QColor kGrid(0x2E, 0x34, 0x3B);
 const QColor kAxis(0x8A, 0x93, 0x9E);
-// 测量光标配色
-const QColor kCurX1(0xFF, 0xC1, 0x07);   // X1 金
-const QColor kCurX2(0xFF, 0x70, 0x43);   // X2 橙红
-const QColor kCurY1(0x4F, 0xC3, 0xF7);   // Y1 天蓝
-const QColor kCurY2(0x69, 0xF0, 0xAE);   // Y2 青绿
+// 测量光标配色：刻意避开波形通道用的红/黄/橙/蓝/紫/绿等色
+const QColor kCurX1(0xFF, 0x2D, 0x95);   // X1 品红
+const QColor kCurX2(0x00, 0xE5, 0xFF);   // X2 亮青
+const QColor kCurY1(0xC7, 0x7D, 0xFF);   // Y1 紫罗兰
+const QColor kCurY2(0xB2, 0xFF, 0x59);   // Y2 亮柠檬绿
 const QColor kCurDx(0xFF, 0xD5, 0x4F);   // Δ 亮金
 const QColor kReadHead(0x9A, 0xA0, 0xA6); // 读数框表头灰
 
@@ -150,6 +150,7 @@ void WaveformView::setCursorMeasure(bool on)
     }
     m_measure = on;
     m_activeHandle = -1;
+    m_hoverHandle = -1;
     if (on) {
         m_cursorsInit = false;     // 打开时按当前视窗重新摆放两条 X 光标
         setPaused(true);           // 光标测量在冻结画面上做，避免光标随数据漂走
@@ -497,38 +498,72 @@ void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
     const double x1 = xOf(m_mx1), x2 = xOf(m_mx2);
     const double y1 = yOf(m_my1), y2 = yOf(m_my2);
 
-    // ---- 两条竖线 X1 / X2 ----
+    // ---- 光标线：带深色描边(halo) + 端部标签，压在任意波形上都找得到 ----
+    QFont cf = p.font();
+    cf.setPointSizeF(8.0);
+    cf.setBold(true);
+    p.setFont(cf);
+    const QFontMetrics cfm(cf);
+    auto drawTag = [&](const QString &text, const QRectF &r0, const QColor &c) {
+        QRectF r = r0;
+        if (r.left() < plot.left())
+            r.moveLeft(plot.left());
+        if (r.right() > plot.right())
+            r.moveRight(plot.right());
+        if (r.top() < plot.top())
+            r.moveTop(plot.top());
+        if (r.bottom() > plot.bottom())
+            r.moveBottom(plot.bottom());
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0x00, 0x00, 0x00, 235));       // 描边
+        p.drawRect(r.adjusted(-1.5, -1.5, 1.5, 1.5));
+        p.setBrush(c);
+        p.drawRect(r);
+        p.setPen(QColor(0x10, 0x13, 0x17));              // 深色字，实底上清晰
+        p.drawText(r, Qt::AlignCenter, text);
+    };
+
+    // ---- 竖线 X1 / X2 ----
     {
         const double xs[2] = {x1, x2};
+        const QString xn[2] = {QStringLiteral("X1"), QStringLiteral("X2")};
         const QColor xc[2] = {kCurX1, kCurX2};
         for (int i = 0; i < 2; ++i) {
             if (xs[i] < plot.left() - 0.5 || xs[i] > plot.right() + 0.5)
                 continue;
+            const bool act = (m_activeHandle == i || m_hoverHandle == i);
+            p.setPen(QPen(QColor(0, 0, 0, 215), act ? 5.0 : 3.5));   // halo
+            p.drawLine(QPointF(xs[i], plot.top()), QPointF(xs[i], plot.bottom()));
             QPen pen(xc[i]);
-            pen.setWidth(m_activeHandle == i ? 2 : 1);
+            pen.setWidthF(act ? 2.2 : 1.5);
             pen.setStyle(Qt::DashLine);
             p.setPen(pen);
             p.drawLine(QPointF(xs[i], plot.top()), QPointF(xs[i], plot.bottom()));
-            p.setBrush(xc[i]);
-            p.setPen(Qt::NoPen);
-            p.drawRect(QRectF(xs[i] - 4, plot.top(), 8, 5));        // 顶部抓手
+            const int tw = cfm.horizontalAdvance(xn[i]) + 10;
+            const int th = cfm.height() + 2;
+            drawTag(xn[i], QRectF(xs[i] - tw / 2.0, plot.top() + 2, tw, th), xc[i]);
         }
     }
-    // ---- 两条横线 Y1 / Y2 ----
+    // ---- 横线 Y1 / Y2 ----
     {
         const double ys[2] = {y1, y2};
+        const QString yn[2] = {QStringLiteral("Y1"), QStringLiteral("Y2")};
         const QColor yc[2] = {kCurY1, kCurY2};
         for (int i = 0; i < 2; ++i) {
             if (ys[i] < plot.top() - 0.5 || ys[i] > plot.bottom() + 0.5)
                 continue;
+            const bool act = (m_activeHandle == 2 + i || m_hoverHandle == 2 + i);
+            p.setPen(QPen(QColor(0, 0, 0, 215), act ? 5.0 : 3.5));   // halo
+            p.drawLine(QPointF(plot.left(), ys[i]), QPointF(plot.right(), ys[i]));
             QPen pen(yc[i]);
-            pen.setWidth(m_activeHandle == 2 + i ? 2 : 1);
+            pen.setWidthF(act ? 2.2 : 1.5);
             pen.setStyle(Qt::DashLine);
             p.setPen(pen);
             p.drawLine(QPointF(plot.left(), ys[i]), QPointF(plot.right(), ys[i]));
-            p.setBrush(yc[i]);
-            p.setPen(Qt::NoPen);
-            p.drawRect(QRectF(plot.left(), ys[i] - 4, 5, 8));       // 左侧抓手
+            // 标签贴着左端（上/下都随线走）
+            const int tw = cfm.horizontalAdvance(yn[i]) + 10;
+            const int th = cfm.height() + 2;
+            drawTag(yn[i], QRectF(plot.left() + 3, ys[i] - th / 2.0, tw, th), yc[i]);
         }
     }
 
@@ -726,7 +761,8 @@ void WaveformView::mousePressEvent(QMouseEvent *e)
     if (m_measure) {                            // 测量模式：左键拖动光标，不平移波形
         m_activeHandle = nearestHandle(QPointF(e->pos()));
         if (m_activeHandle >= 0) {
-            setCursor(Qt::SizeAllCursor);
+            setCursor(m_activeHandle <= 1 ? Qt::SizeHorCursor : Qt::SizeVerCursor);
+            m_hoverHandle = m_activeHandle;
             dragHandleTo(QPointF(e->pos()));
             update();
         }
@@ -746,7 +782,20 @@ void WaveformView::mouseMoveEvent(QMouseEvent *e)
         if (m_activeHandle >= 0) {
             dragHandleTo(QPointF(e->pos()));
             update();
+            return;
         }
+        // 未拖动时做悬停探测：靠近某条光标线就高亮它并换成对应的拖动指针
+        const int h = nearestHandle(QPointF(e->pos()));
+        if (h != m_hoverHandle) {
+            m_hoverHandle = h;
+            update();
+        }
+        if (h == 0 || h == 1)
+            setCursor(Qt::SizeHorCursor);       // X 竖线：左右移动
+        else if (h == 2 || h == 3)
+            setCursor(Qt::SizeVerCursor);       // Y 横线：上下移动
+        else
+            unsetCursor();
         return;
     }
     m_cursorX = e->pos().x();
@@ -761,11 +810,22 @@ void WaveformView::mouseMoveEvent(QMouseEvent *e)
     update();
 }
 
-void WaveformView::mouseReleaseEvent(QMouseEvent *)
+void WaveformView::mouseReleaseEvent(QMouseEvent *e)
 {
     m_dragging = false;
     m_activeHandle = -1;
-    unsetCursor();
+    if (m_measure) {
+        m_hoverHandle = nearestHandle(QPointF(e->pos()));   // 松手后按当前鼠标位置重新判定悬停
+        if (m_hoverHandle == 0 || m_hoverHandle == 1)
+            setCursor(Qt::SizeHorCursor);
+        else if (m_hoverHandle == 2 || m_hoverHandle == 3)
+            setCursor(Qt::SizeVerCursor);
+        else
+            unsetCursor();
+    } else {
+        unsetCursor();
+    }
+    update();
 }
 
 void WaveformView::mouseDoubleClickEvent(QMouseEvent *)
@@ -776,6 +836,8 @@ void WaveformView::mouseDoubleClickEvent(QMouseEvent *)
 void WaveformView::leaveEvent(QEvent *)
 {
     m_cursorX = -1;
+    m_hoverHandle = -1;
+    unsetCursor();
     update();
 }
 

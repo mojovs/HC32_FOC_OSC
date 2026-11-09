@@ -97,7 +97,8 @@ private:
     double m_mx1 = 0.0, m_mx2 = 0.0;      // X 光标位置（绝对样本号）
     double m_my1 = 0.0, m_my2 = 0.0;      // Y 光标位置（显示值，含增益偏移）
     bool m_measured[10] = {true, true, false, false, true, true, true, false, false, false};
-    int m_activeHandle = -1;              // 0=X1 1=X2 2=Y1 3=Y2
+    int m_activeHandle = -1;              // 正在拖动的光标：0=X1 1=X2 2=Y1 3=Y2
+    int m_hoverHandle = -1;               // 鼠标悬停靠近的光标（高亮提示）
     double m_lastStart = 0.0, m_lastEnd = 1.0;    // 最近一次绘制的坐标映射（供鼠标换算）
     double m_lastYmin = -1.0, m_lastYmax = 1.0;
 };
