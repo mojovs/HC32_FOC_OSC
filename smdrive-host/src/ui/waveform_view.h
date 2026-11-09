@@ -2,6 +2,7 @@
 // （计划书 §3.2：自绘最干净），性能策略等价于 §5.6。
 #pragma once
 
+#include <QColor>
 #include <QWidget>
 
 QT_BEGIN_NAMESPACE
@@ -30,6 +31,13 @@ public:
     /// 每通道显示增益（示波器的 V/div 等价物）：显示值 = 原始值 × gain − offset
     void setGain(int channel, double gain);
     double gain(int channel) const;
+    /// 每通道显示样式（颜色 / 线型 / 线宽）——只改本地绘图，不发帧
+    void setChannelColor(int channel, const QColor &color);
+    QColor channelColor(int channel) const;
+    void setChannelStyle(int channel, Qt::PenStyle style);
+    Qt::PenStyle channelStyle(int channel) const;
+    void setChannelWidth(int channel, double width);
+    double channelWidth(int channel) const;
     void setAutoScale(bool on) { m_autoScale = on; update(); }
     bool autoScale() const { return m_autoScale; }
     void setYRange(double lo, double hi);
@@ -78,6 +86,9 @@ private:
     bool m_visible[10] = {true, true, false, false, true, true, true, false, false, false};
     double m_gains[10] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     double m_offsets[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    QColor m_colors[10];                  // 每通道颜色（构造时取自 channelTable()）
+    Qt::PenStyle m_styles[10];            // 每通道线型
+    double m_widths[10];                  // 每通道线宽
     bool m_autoScale = true;
     double m_manualMin = -1.0;
     double m_manualMax = 1.0;

@@ -54,6 +54,14 @@ WaveformView::WaveformView(QWidget *parent)
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setFocusPolicy(Qt::StrongFocus);
 
+    // 每通道显示样式的默认值：颜色取自 channelTable()，实线，细线宽
+    const auto &meta0 = channelTable();
+    for (int c = 0; c < m_channelCount; ++c) {
+        m_colors[c] = (c < int(meta0.size())) ? meta0[size_t(c)].color : QColor(Qt::white);
+        m_styles[c] = Qt::SolidLine;
+        m_widths[c] = 1.2;
+    }
+
     // 底部进度条：在整个环形历史中拖动定位；一拖即自动暂停（停止跟随）
     m_scroll = new QScrollBar(Qt::Horizontal, this);
     m_scroll->setRange(0, 0);
@@ -119,6 +127,48 @@ void WaveformView::setGain(int channel, double gain)
 double WaveformView::gain(int channel) const
 {
     return (channel >= 0 && channel < m_channelCount) ? m_gains[channel] : 1.0;
+}
+
+void WaveformView::setChannelColor(int channel, const QColor &color)
+{
+    if (channel < 0 || channel >= m_channelCount || !color.isValid())
+        return;
+    m_colors[channel] = color;
+    update();
+}
+
+QColor WaveformView::channelColor(int channel) const
+{
+    const auto &meta = channelTable();
+    if (channel < 0 || channel >= m_channelCount)
+        return QColor(Qt::white);
+    return (channel < int(meta.size())) ? m_colors[channel] : QColor(Qt::white);
+}
+
+void WaveformView::setChannelStyle(int channel, Qt::PenStyle style)
+{
+    if (channel < 0 || channel >= m_channelCount)
+        return;
+    m_styles[channel] = style;
+    update();
+}
+
+Qt::PenStyle WaveformView::channelStyle(int channel) const
+{
+    return (channel >= 0 && channel < m_channelCount) ? m_styles[channel] : Qt::SolidLine;
+}
+
+void WaveformView::setChannelWidth(int channel, double width)
+{
+    if (channel < 0 || channel >= m_channelCount)
+        return;
+    m_widths[channel] = std::clamp(width, 0.5, 6.0);
+    update();
+}
+
+double WaveformView::channelWidth(int channel) const
+{
+    return (channel >= 0 && channel < m_channelCount) ? m_widths[channel] : 1.2;
 }
 
 void WaveformView::setYRange(double lo, double hi)
@@ -385,7 +435,6 @@ void WaveformView::drawCurves(QPainter &p, const QRectF &plot, double startSampl
     const int cols = std::max(1, int(plot.width()));
     const double span = std::max(1.0, endSample - startSample);
     const double vs = (ymax - ymin);
-    const auto &meta = channelTable();
 
     p.setRenderHint(QPainter::Antialiasing, false);
     for (int c = 0; c < m_channelCount; ++c) {
@@ -432,8 +481,11 @@ void WaveformView::drawCurves(QPainter &p, const QRectF &plot, double startSampl
             if (yLo != yHi)
                 path.lineTo(b);
         }
-        QPen pen(meta[size_t(c)].color);
-        pen.setWidthF(1.2);
+        QPen pen(m_colors[c]);
+        pen.setStyle(m_styles[c]);
+        pen.setWidthF(m_widths[c]);
+        if (m_styles[c] != Qt::SolidLine)
+            pen.setCapStyle(Qt::RoundCap);       // 点线/虚线端部取圆，视觉上更像“圆点线”
         p.setPen(pen);
         p.drawPath(path);
     }
@@ -458,7 +510,11 @@ void WaveformView::drawLegend(QPainter &p, const QRectF &plot) const
         if (x + w > plot.right() - 8) {
             x = plot.left() + 8;
         }
-        p.setPen(QPen(meta[size_t(c)].color, 2));
+        QPen lpen(m_colors[c]);
+        lpen.setStyle(m_styles[c]);
+        lpen.setWidthF(std::max(2.0, m_widths[c]));
+        lpen.setCapStyle(Qt::RoundCap);
+        p.setPen(lpen);
         p.drawLine(QPointF(x, y - 4), QPointF(x + 14, y - 4));
         p.setPen(QColor(0xD5, 0xDA, 0xE0));
         p.drawText(QPointF(x + 18, y), label);

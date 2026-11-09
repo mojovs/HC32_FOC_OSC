@@ -12,9 +12,12 @@
 
 QT_BEGIN_NAMESPACE
 class QAction;
+class QCheckBox;
+class QColor;
 class QComboBox;
 class QDoubleSpinBox;
 class QLabel;
+class QMenu;
 class QSpinBox;
 class QStackedWidget;
 class QTabWidget;
@@ -80,6 +83,9 @@ private:
     void buildMenus();              // 文件 / 设备 / 帮助
     void wireSignals();
     void sendCommand(const QByteArray &bytes);
+    void rebuildChannelStyleMenu(int c, QMenu *menu);   // 通道配色/线型下拉（每次弹出重建）
+    void updateChannelStyleButton(int c);               // 刷新样式按钮上的线样图标
+    void applyChannelColor(int c, const QColor &col);   // 改色：波形 + 勾选框文字色 + 图标
     void switchToReplay(const QString &path, double fps);
     void startRecording(const QString &rawPath, const QString &csvPath, bool askDir);
     void stopRecording();
@@ -110,6 +116,9 @@ private:
     QSpinBox *m_rateBox = nullptr;
     QDoubleSpinBox *m_windowBox = nullptr;
     QVector<QDoubleSpinBox *> m_gainSpins;   // 每通道显示增益输入框
+    QVector<QCheckBox *> m_chanChecks;       // 每通道显示勾选框（改色时同步文字色）
+    QVector<QToolButton *> m_chanStyleBtns;  // 每通道配色/线型按钮
+    QVector<QMenu *> m_chanStyleMenus;       // 对应下拉菜单
     QLabel *m_connLabel = nullptr;      // 右侧面板内的连接状态
     QLabel *m_serialLabel = nullptr;    // 右侧面板内的串号
     QLabel *m_statusPort = nullptr;

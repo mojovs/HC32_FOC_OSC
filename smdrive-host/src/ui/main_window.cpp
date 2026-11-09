@@ -13,9 +13,11 @@
 #include "ui/waveform_view.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QButtonGroup>
 #include <QCheckBox>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
@@ -26,11 +28,13 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QKeySequence>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
@@ -45,6 +49,8 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QWidget>
+#include <QWidgetAction>
 
 namespace smd {
 
@@ -354,15 +360,16 @@ void MainWindow::buildUi()
     QVBoxLayout *chanOuter = nullptr;
     auto *chanBox = makeGroup(QStringLiteral("波形通道（偏移只改本地绘图）"), controlPage, &chanOuter);
     auto *chanGrid = new QGridLayout();
-    chanGrid->setHorizontalSpacing(6);
+    chanGrid->setHorizontalSpacing(4);
     const auto &meta = channelTable();
     const int rowsPerCol = (int(meta.size()) + 1) / 2;          // 10 路排成两列，省竖直空间
     for (int c = 0; c < int(meta.size()); ++c) {
         auto *cb = new QCheckBox(meta[size_t(c)].name, chanBox);
         cb->setChecked(meta[size_t(c)].visible);
         cb->setToolTip(meta[size_t(c)].desc);
-        cb->setStyleSheet(QStringLiteral("QCheckBox{color:%1;}").arg(meta[size_t(c)].color.name()));
+        cb->setStyleSheet(QStringLiteral("QCheckBox{color:%1;}").arg(m_wave->channelColor(c).name()));
         m_wave->setChannelVisible(c, meta[size_t(c)].visible);
+        m_chanChecks.append(cb);
 
         auto *gain = new QDoubleSpinBox(chanBox);
         gain->setRange(1e-4, 1e5);
@@ -370,8 +377,8 @@ void MainWindow::buildUi()
         gain->setValue(1.0);
         gain->setPrefix(QStringLiteral("×"));
         gain->setToolTip(QStringLiteral("显示增益（示波器 V/div 等价物；只影响绘图，不发帧）"));
-        gain->setMinimumWidth(84);
-        gain->setMaximumWidth(104);
+        gain->setMinimumWidth(70);
+        gain->setMaximumWidth(80);
         m_gainSpins.append(gain);
 
         auto *offset = new QDoubleSpinBox(chanBox);
@@ -380,8 +387,22 @@ void MainWindow::buildUi()
         offset->setSingleStep(1.0);
         offset->setPrefix(QStringLiteral("Δ"));          // 窄前缀，避免把右栏挤爆
         offset->setToolTip(QStringLiteral("绘图偏移（只改本地显示，不发帧）"));
-        offset->setMinimumWidth(84);
-        offset->setMaximumWidth(104);
+        offset->setMinimumWidth(64);
+        offset->setMaximumWidth(76);
+
+        // 配色 / 线型按钮：点开选颜色与线型（实线/虚线/点线/点划线/双点划线）与线宽
+        auto *styleBtn = new QToolButton(chanBox);
+        styleBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        styleBtn->setPopupMode(QToolButton::InstantPopup);
+        styleBtn->setFixedSize(26, 22);
+        styleBtn->setToolTip(QStringLiteral("点击设置该通道的颜色与线型"));
+        auto *styleMenu = new QMenu(styleBtn);
+        styleBtn->setMenu(styleMenu);
+        m_chanStyleBtns.append(styleBtn);
+        m_chanStyleMenus.append(styleMenu);
+        connect(styleMenu, &QMenu::aboutToShow, this, [this, c, styleMenu] {
+            rebuildChannelStyleMenu(c, styleMenu);       // 每次弹出按当前状态重建
+        });
 
         connect(cb, &QCheckBox::toggled, this, [this, c](bool on) { m_wave->setChannelVisible(c, on); });
         connect(gain, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
@@ -390,11 +411,14 @@ void MainWindow::buildUi()
                 [this, c](double v) { m_wave->setOffset(c, v); });
 
         const int row = c % rowsPerCol;
-        const int col = (c / rowsPerCol) * 3;
+        const int col = (c / rowsPerCol) * 4;
         chanGrid->addWidget(cb, row, col);
         chanGrid->addWidget(gain, row, col + 1);
         chanGrid->addWidget(offset, row, col + 2);
+        chanGrid->addWidget(styleBtn, row, col + 3);
     }
+    for (int c = 0; c < int(meta.size()); ++c)
+        updateChannelStyleButton(c);                     // 初始化各按钮上的线样图标
     chanOuter->addLayout(chanGrid);
     controlLayout->addWidget(chanBox);
 
@@ -550,6 +574,128 @@ void MainWindow::buildMenus()
     m_aboutAct = new QAction(QStringLiteral("关于 SMotorDrive 上位机"), this);
     connect(m_aboutAct, &QAction::triggered, this, &MainWindow::onAbout);
     helpMenu->addAction(m_aboutAct);
+}
+
+// ---------------------------------------------------------------------------
+// 通道样式（配色 / 线型 / 线宽）：只改本地绘图，不发帧。菜单每次弹出按当前状态重建。
+// ---------------------------------------------------------------------------
+void MainWindow::updateChannelStyleButton(int c)
+{
+    if (c < 0 || c >= m_chanStyleBtns.size())
+        return;
+    const int w = 34, h = 14;
+    QPixmap pm(w, h);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(m_wave->channelColor(c));
+    pen.setStyle(m_wave->channelStyle(c));
+    pen.setWidthF(std::max(1.6, m_wave->channelWidth(c)));
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+    p.drawLine(QPointF(2, h / 2.0), QPointF(w - 2, h / 2.0));
+    p.end();
+    m_chanStyleBtns[c]->setIcon(QIcon(pm));
+    m_chanStyleBtns[c]->setIconSize(QSize(w, h));
+}
+
+void MainWindow::applyChannelColor(int c, const QColor &col)
+{
+    m_wave->setChannelColor(c, col);
+    if (c < m_chanChecks.size() && m_chanChecks[c])
+        m_chanChecks[c]->setStyleSheet(QStringLiteral("QCheckBox{color:%1;}").arg(col.name()));
+    updateChannelStyleButton(c);
+}
+
+void MainWindow::rebuildChannelStyleMenu(int c, QMenu *menu)
+{
+    menu->clear();
+
+    // ---- 颜色网格 ----
+    static const QColor kPalette[] = {
+        QColor(0xE6, 0x39, 0x46), QColor(0x2A, 0x9D, 0x8F), QColor(0x1D, 0x35, 0x57), QColor(0xFF, 0x9F, 0x1C),
+        QColor(0x45, 0x7B, 0x9D), QColor(0x8E, 0x7C, 0xC3), QColor(0xF9, 0xC7, 0x4F), QColor(0x6A, 0x99, 0x4D),
+        QColor(0xA1, 0x6E, 0x3C), QColor(0xF7, 0x8C, 0x6B), QColor(0xFF, 0xFF, 0xFF), QColor(0x00, 0xE5, 0xFF),
+        QColor(0xFF, 0x2D, 0x95), QColor(0xB2, 0xFF, 0x59), QColor(0xC7, 0x7D, 0xFF), QColor(0x99, 0xA2, 0xAB),
+    };
+    const int nColor = int(sizeof(kPalette) / sizeof(kPalette[0]));
+    const int cols = 8;
+    const QColor cur = m_wave->channelColor(c);
+
+    auto *grid = new QWidget(menu);
+    auto *gl = new QGridLayout(grid);
+    gl->setContentsMargins(6, 4, 6, 4);
+    gl->setSpacing(3);
+    for (int i = 0; i < nColor; ++i) {
+        const QColor col = kPalette[i];
+        auto *b = new QToolButton(grid);
+        b->setFixedSize(18, 18);
+        b->setToolTip(col.name());
+        QString ss = QStringLiteral("QToolButton{background:%1;border:1px solid #555;}"
+                                    "QToolButton:hover{border:2px solid #fff;}").arg(col.name());
+        if (col == cur)
+            ss += QStringLiteral("QToolButton{border:2px solid #3d7eff;}");
+        b->setStyleSheet(ss);
+        connect(b, &QToolButton::clicked, this, [this, c, col, menu] {
+            applyChannelColor(c, col);
+            menu->close();
+        });
+        gl->addWidget(b, i / cols, i % cols);
+    }
+    auto *custom = new QToolButton(grid);
+    custom->setText(QStringLiteral("自定义…"));
+    custom->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    custom->setFixedHeight(20);
+    connect(custom, &QToolButton::clicked, this, [this, c, menu] {
+        menu->close();                                   // 先收起菜单再弹取色器
+        const QColor col = QColorDialog::getColor(m_wave->channelColor(c), this,
+                                                  QStringLiteral("选择通道 CH%1 的颜色").arg(c));
+        if (col.isValid())
+            applyChannelColor(c, col);
+    });
+    gl->addWidget(custom, (nColor - 1) / cols + 1, 0, 1, cols);
+    auto *gridAct = new QWidgetAction(menu);
+    gridAct->setDefaultWidget(grid);
+    menu->addAction(gridAct);
+
+    menu->addSeparator();
+
+    // ---- 线型 ----
+    auto *styleGroup = new QActionGroup(menu);
+    styleGroup->setExclusive(true);
+    const struct { const char *name; Qt::PenStyle s; } kStyles[] = {
+        {"实线", Qt::SolidLine},   {"虚线", Qt::DashLine},        {"点线", Qt::DotLine},
+        {"点划线", Qt::DashDotLine}, {"双点划线", Qt::DashDotDotLine},
+    };
+    for (const auto &si : kStyles) {
+        QAction *a = menu->addAction(QString::fromUtf8(si.name));
+        a->setCheckable(true);
+        a->setChecked(m_wave->channelStyle(c) == si.s);
+        styleGroup->addAction(a);
+        connect(a, &QAction::triggered, this, [this, c, s = si.s] {
+            m_wave->setChannelStyle(c, s);
+            updateChannelStyleButton(c);
+        });
+    }
+
+    menu->addSeparator();
+
+    // ---- 线宽 ----
+    auto *widthGroup = new QActionGroup(menu);
+    widthGroup->setExclusive(true);
+    const struct { const char *name; double w; } kWidths[] = {
+        {"细", 1.0}, {"中", 1.8}, {"粗", 2.8},
+    };
+    for (const auto &wi : kWidths) {
+        QAction *a = menu->addAction(QString::fromUtf8(wi.name));
+        a->setCheckable(true);
+        a->setChecked(qFuzzyCompare(m_wave->channelWidth(c), wi.w));
+        widthGroup->addAction(a);
+        connect(a, &QAction::triggered, this, [this, c, w = wi.w] {
+            m_wave->setChannelWidth(c, w);
+            updateChannelStyleButton(c);
+        });
+    }
 }
 
 void MainWindow::onAbout()
