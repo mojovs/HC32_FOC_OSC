@@ -276,10 +276,16 @@ void MainWindow::buildUi()
         m_pauseAct->setChecked(on);
         m_pauseAct->blockSignals(false);
     });
+    m_cursorAct = new QAction(QStringLiteral("光标测量"), this);
+    m_cursorAct->setCheckable(true);
+    m_cursorAct->setStatusTip(QStringLiteral("X1/X2 竖线测时间、Y1/Y2 横线测数值，读出 ΔX / ΔY；"
+                                             "打开后画面冻结，拖动光标线移动"));
+    connect(m_cursorAct, &QAction::toggled, this, [this](bool on) { m_wave->setCursorMeasure(on); });
     auto *resetViewBtn = new QPushButton(QStringLiteral("复位视图/偏移"), dispBox);
     connect(resetViewBtn, &QPushButton::clicked, this, [this] { m_wave->resetView(); });
     auto *dispBtnRow = new QHBoxLayout();
     dispBtnRow->addWidget(makeActionButton(m_pauseAct, dispBox));
+    dispBtnRow->addWidget(makeActionButton(m_cursorAct, dispBox));
     dispBtnRow->addWidget(resetViewBtn);
     dispLayout->addLayout(dispBtnRow);
     controlLayout->addWidget(dispBox);

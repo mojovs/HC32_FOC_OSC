@@ -128,6 +128,7 @@ private:
     QAction *m_recordAct = nullptr;
     QAction *m_replayAct = nullptr;
     QAction *m_pauseAct = nullptr;
+    QAction *m_cursorAct = nullptr;         // 显示 → 光标测量（X1/X2、Y1/Y2）
     QAction *m_saveProfileAct = nullptr;    // 文件 → 保存参数方案…
     QAction *m_loadProfileAct = nullptr;    // 文件 → 加载参数方案…
     QAction *m_quitAct = nullptr;           // 文件 → 退出

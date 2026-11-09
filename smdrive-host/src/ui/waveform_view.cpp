@@ -8,6 +8,7 @@
 #include <QPainterPath>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QStringList>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -29,6 +30,11 @@ const QColor kBg(0x1B, 0x1E, 0x22);
 const QColor kPlotBg(0x11, 0x13, 0x16);
 const QColor kGrid(0x2E, 0x34, 0x3B);
 const QColor kAxis(0x8A, 0x93, 0x9E);
+// 测量光标配色（X 竖线 / Y 横线各一对，颜色区分便于读数）
+const QColor kCurX1(0xFF, 0xC1, 0x07);
+const QColor kCurX2(0xFF, 0x52, 0x52);
+const QColor kCurY1(0x4F, 0xC3, 0xF7);
+const QColor kCurY2(0x69, 0xF0, 0xAE);
 } // namespace
 
 WaveformView::WaveformView(QWidget *parent)
@@ -127,6 +133,21 @@ void WaveformView::setPaused(bool on)
     emit pausedChanged(m_paused);
 }
 
+void WaveformView::setCursorMeasure(bool on)
+{
+    if (on == m_measure) {
+        update();
+        return;
+    }
+    m_measure = on;
+    m_activeHandle = -1;
+    if (on) {
+        m_cursorsInit = false;     // 打开时按当前视窗重新摆放两条 X / 两条 Y
+        setPaused(true);           // 光标测量在冻结画面上做，避免光标随数据漂走
+    }
+    update();
+}
+
 void WaveformView::resetView()
 {
     m_autoScale = true;
@@ -134,6 +155,7 @@ void WaveformView::resetView()
         o = 0.0;
     for (double &g : m_gains)
         g = 1.0;
+    m_cursorsInit = false;
     setPaused(false);       // 回到实时跟随
     update();
 }
@@ -252,6 +274,12 @@ void WaveformView::paintEvent(QPaintEvent *)
         ymax = m_manualMax;
     }
 
+    // 记下本帧的坐标映射，供鼠标换算光标位置（拖动时用）
+    m_lastStart = startSample;
+    m_lastEnd = endSample;
+    m_lastYmin = ymin;
+    m_lastYmax = ymax;
+
     drawGrid(p, plot);
     drawCurves(p, plot, startSample, endSample, ymin, ymax);
 
@@ -278,10 +306,24 @@ void WaveformView::paintEvent(QPaintEvent *)
     }
 
     drawLegend(p, plot);
-    if (m_cursorX >= 0)
+    if (!m_measure && m_cursorX >= 0)
         drawCursor(p, plot, startSample, endSample);
 
-    if (m_paused) {
+    if (m_measure) {
+        // 首次打开（或复位后）：等有数据、量程有效时再按当前视窗摆好，避免 inf 量程算出 nan
+        if (!m_cursorsInit && total > 0 && std::isfinite(ymin) && std::isfinite(ymax)) {
+            const double span = endSample - startSample;
+            m_mx1 = startSample + span * 0.25;
+            m_mx2 = startSample + span * 0.75;
+            m_my1 = ymin + (ymax - ymin) * 0.35;
+            m_my2 = ymin + (ymax - ymin) * 0.65;
+            m_cursorsInit = true;
+        }
+        if (m_cursorsInit)
+            drawMeasureCursors(p, plot);
+    }
+
+    if (m_paused && !m_measure) {
         p.setPen(QColor(0xFF, 0xC1, 0x07));
         p.drawText(plot.adjusted(8, 8, -8, -8), Qt::AlignRight | Qt::AlignTop,
                    QStringLiteral("已暂停 (停止跟随最新，可拖动进度条/波形浏览历史)"));
@@ -417,6 +459,130 @@ void WaveformView::drawCursor(QPainter &p, const QRectF &plot, double startSampl
                QStringLiteral("t %1 s").arg(tAbs, 0, 'f', 4));
 }
 
+void WaveformView::drawMeasureCursors(QPainter &p, const QRectF &plot) const
+{
+    const double rate = (m_hub && m_hub->sampleRate() > 0) ? double(m_hub->sampleRate()) : 1.0;
+    const double span = std::max(1e-9, m_lastEnd - m_lastStart);
+    const double yRange = std::max(1e-12, m_lastYmax - m_lastYmin);
+
+    auto xOf = [&](double sample) {
+        return plot.left() + (sample - m_lastStart) / span * plot.width();
+    };
+    auto yOf = [&](double value) {
+        return plot.bottom() - (value - m_lastYmin) / yRange * plot.height();
+    };
+
+    QFont f = p.font();
+    f.setPointSizeF(8.0);
+    p.setFont(f);
+
+    const double x1 = xOf(m_mx1), x2 = xOf(m_mx2);
+    const double y1 = yOf(m_my1), y2 = yOf(m_my2);
+    const double xs[2] = {x1, x2};
+    const double ys[2] = {y1, y2};
+    const QColor xc[2] = {kCurX1, kCurX2};
+    const QColor yc[2] = {kCurY1, kCurY2};
+
+    // ---- 竖线 X1 / X2 ----
+    for (int i = 0; i < 2; ++i) {
+        if (xs[i] < plot.left() - 0.5 || xs[i] > plot.right() + 0.5)
+            continue;
+        QPen pen(xc[i]);
+        pen.setWidth(i == 0 ? (m_activeHandle == 0 ? 2 : 1) : (m_activeHandle == 1 ? 2 : 1));
+        pen.setStyle(Qt::DashLine);
+        p.setPen(pen);
+        p.drawLine(QPointF(xs[i], plot.top()), QPointF(xs[i], plot.bottom()));
+        p.setBrush(xc[i]);
+        p.setPen(Qt::NoPen);
+        p.drawRect(QRectF(xs[i] - 4, plot.top(), 8, 5));        // 顶部抓手
+    }
+
+    // ---- 横线 Y1 / Y2 ----
+    for (int i = 0; i < 2; ++i) {
+        if (ys[i] < plot.top() - 0.5 || ys[i] > plot.bottom() + 0.5)
+            continue;
+        QPen pen(yc[i]);
+        pen.setWidth(i == 0 ? (m_activeHandle == 2 ? 2 : 1) : (m_activeHandle == 3 ? 2 : 1));
+        pen.setStyle(Qt::DashLine);
+        p.setPen(pen);
+        p.drawLine(QPointF(plot.left(), ys[i]), QPointF(plot.right(), ys[i]));
+        p.setBrush(yc[i]);
+        p.setPen(Qt::NoPen);
+        p.drawRect(QRectF(plot.left(), ys[i] - 4, 5, 8));       // 左侧抓手
+    }
+
+    // ---- 读数框（右上角）：两条 X 的时间、两条 Y 的数值，以及各自差值 ----
+    const double dt = (m_mx2 - m_mx1) / rate;                   // 秒
+    const double dy = m_my2 - m_my1;
+    QStringList lines;
+    lines << QStringLiteral("X1 %1 s").arg(m_mx1 / rate, 0, 'f', 4)
+          << QStringLiteral("X2 %1 s").arg(m_mx2 / rate, 0, 'f', 4)
+          << QStringLiteral("ΔX %1 s").arg(dt, 0, 'f', 4);
+    if (std::abs(dt) > 1e-9)
+        lines << QStringLiteral("1/ΔX %1 Hz").arg(1.0 / std::abs(dt), 0, 'f', 1);
+    lines << QStringLiteral("Y1 %1").arg(m_my1, 0, 'g', 6)
+          << QStringLiteral("Y2 %1").arg(m_my2, 0, 'g', 6)
+          << QStringLiteral("ΔY %1").arg(dy, 0, 'g', 6);
+
+    const QFontMetrics fm(p.font());
+    int w = 0;
+    for (const QString &s : lines)
+        w = std::max(w, fm.horizontalAdvance(s));
+    w += 18;
+    const int lh = fm.height();
+    const QRectF box(plot.right() - w - 8, plot.top() + 8, w, lh * lines.size() + 10);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(0, 0, 0, 180));
+    p.drawRoundedRect(box, 4, 4);
+    p.setPen(QColor(0xE6, 0xEA, 0xEF));
+    for (int i = 0; i < lines.size(); ++i)
+        p.drawText(QRectF(box.left() + 9, box.top() + 5 + lh * i, w - 18, lh),
+                   Qt::AlignLeft | Qt::AlignVCenter, lines[i]);
+}
+
+int WaveformView::nearestHandle(const QPointF &pos) const
+{
+    const QRectF plot = plotRect();
+    const double span = std::max(1e-9, m_lastEnd - m_lastStart);
+    const double yRange = std::max(1e-12, m_lastYmax - m_lastYmin);
+    const double x1 = plot.left() + (m_mx1 - m_lastStart) / span * plot.width();
+    const double x2 = plot.left() + (m_mx2 - m_lastStart) / span * plot.width();
+    const double y1 = plot.bottom() - (m_my1 - m_lastYmin) / yRange * plot.height();
+    const double y2 = plot.bottom() - (m_my2 - m_lastYmin) / yRange * plot.height();
+
+    const double kGrab = 14.0;                                  // 抓取半径（像素）
+    int best = -1;
+    double bestD = kGrab;
+    if (pos.y() >= plot.top() && pos.y() <= plot.bottom()) {
+        if (std::abs(pos.x() - x1) < bestD) { bestD = std::abs(pos.x() - x1); best = 0; }
+        if (std::abs(pos.x() - x2) < bestD) { bestD = std::abs(pos.x() - x2); best = 1; }
+    }
+    if (pos.x() >= plot.left() && pos.x() <= plot.right()) {
+        if (std::abs(pos.y() - y1) < bestD) { bestD = std::abs(pos.y() - y1); best = 2; }
+        if (std::abs(pos.y() - y2) < bestD) { bestD = std::abs(pos.y() - y2); best = 3; }
+    }
+    return best;
+}
+
+void WaveformView::dragHandleTo(const QPointF &pos)
+{
+    const QRectF plot = plotRect();
+    const double span = std::max(1e-9, m_lastEnd - m_lastStart);
+    const double yRange = std::max(1e-12, m_lastYmax - m_lastYmin);
+    const double cx = std::clamp(pos.x(), plot.left(), plot.right());
+    const double cy = std::clamp(pos.y(), plot.top(), plot.bottom());
+    const double sample = m_lastStart + (cx - plot.left()) / std::max(1.0, plot.width()) * span;
+    const double value = m_lastYmin + (plot.bottom() - cy) / std::max(1.0, plot.height()) * yRange;
+
+    switch (m_activeHandle) {
+    case 0: m_mx1 = sample; break;
+    case 1: m_mx2 = sample; break;
+    case 2: m_my1 = value;  break;
+    case 3: m_my2 = value;  break;
+    default: break;
+    }
+}
+
 void WaveformView::wheelEvent(QWheelEvent *e)
 {
     const double steps = e->angleDelta().y() / 120.0;
@@ -429,18 +595,34 @@ void WaveformView::wheelEvent(QWheelEvent *e)
 
 void WaveformView::mousePressEvent(QMouseEvent *e)
 {
-    if (e->button() == Qt::LeftButton) {
-        if (!m_paused && m_hub)             // 未暂停时从当前位置开始拖（等价锁定右端）
-            m_viewEnd = double(m_hub->samplesPerChannel());
-        m_dragging = true;
-        m_dragAnchor = e->pos();
-        m_dragStartViewEnd = m_viewEnd;
-        setCursor(Qt::ClosedHandCursor);
+    if (e->button() != Qt::LeftButton)
+        return;
+    if (m_measure) {                            // 测量模式：左键拖动光标，不平移波形
+        m_activeHandle = nearestHandle(QPointF(e->pos()));
+        if (m_activeHandle >= 0) {
+            setCursor(Qt::SizeAllCursor);
+            dragHandleTo(QPointF(e->pos()));
+            update();
+        }
+        return;
     }
+    if (!m_paused && m_hub)             // 未暂停时从当前位置开始拖（等价锁定右端）
+        m_viewEnd = double(m_hub->samplesPerChannel());
+    m_dragging = true;
+    m_dragAnchor = e->pos();
+    m_dragStartViewEnd = m_viewEnd;
+    setCursor(Qt::ClosedHandCursor);
 }
 
 void WaveformView::mouseMoveEvent(QMouseEvent *e)
 {
+    if (m_measure) {                            // 测量模式：只移动被抓住的光标
+        if (m_activeHandle >= 0) {
+            dragHandleTo(QPointF(e->pos()));
+            update();
+        }
+        return;
+    }
     m_cursorX = e->pos().x();
     if (m_dragging && m_hub) {
         const QRectF plot = plotRect();
@@ -456,6 +638,7 @@ void WaveformView::mouseMoveEvent(QMouseEvent *e)
 void WaveformView::mouseReleaseEvent(QMouseEvent *)
 {
     m_dragging = false;
+    m_activeHandle = -1;
     unsetCursor();
 }
 
